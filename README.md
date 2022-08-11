@@ -5,7 +5,7 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
 * Simple I2S sample reading and setup. Just choose the pins, sample size and sample rate.
 * Robust audio processing library for analysis.
   * Simple FFT compute on your I2S samples.
-  * Frequency bands in 2, 4, 8, 16, or 32 buckets.
+  * Frequency bands in 2, 4, 8, 16, 32 or 64 buckets.
   * Volume Unit Meter.
   * Set a noise floor to ignore values below it.
   * Normalize values into desired min/max ranges.
@@ -16,6 +16,7 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
   * `Frequencies` - Reads I2S microphone data, processes them into frequency buckets to be viewed in the Serial Plotter.
   * `FastLED` - Reads I2S microphone data, processes them into frequency buckets and displays them on a WS2812B led strip.
   * `OLED` - Reads I2S microphone data, processes them into frequency buckets and displays them on a 128x64 OLED display.
+  * `WIFI` - *COMING SOON* - Reads I2S microphone data, processes them into frequency buckets and sends it wirelessly to a webpage.
 
 
 ## Hardware 

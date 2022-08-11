@@ -11,6 +11,12 @@
 //#define FFT_SQRT_APPROXIMATION
 #include <arduinoFFT.h>
 
+#ifndef SAMPLE_SIZE
+#define SAMPLE_SIZE 1024
+#endif
+#ifndef BAND_SIZE
+#define BAND_SIZE 8
+#endif
 class AudioAnalysis
 {
 public:
@@ -171,7 +177,9 @@ void AudioAnalysis::computeFrequencies(uint8_t bandSize)
   const static uint16_t _4frequencyOffsets[4] = {6, 18, 72, 287};
   const static uint16_t _8frequencyOffsets[8] = {2, 4, 6, 12, 25, 47, 92, 195};
   const static uint16_t _16frequencyOffsets[16] = {1, 1, 2, 2, 2, 4, 5, 7, 11, 14, 19, 28, 38, 54, 75, 120};
+  // 32 and 64 frequency offsets are low end biased because of int math... the first 4 and 8 buckets should be 0.5f but we cant do that here.
   const static uint16_t _32frequencyOffsets[32] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 5, 5, 7, 7, 8, 8, 14, 14, 19, 19, 27, 27, 37, 37, 60, 60};
+  const static uint16_t _64frequencyOffsets[64] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 7, 7, 7, 7, 8, 8, 8, 8, 13, 13, 13, 13, 18, 18, 18, 18, 30, 30, 30, 30}; // low end biased because of int
   const uint16_t *_frequencyOffsets;
 try_frequency_offsets_again:
   switch (bandSize)
@@ -190,6 +198,9 @@ try_frequency_offsets_again:
     break;
   case 32:
     _frequencyOffsets = _32frequencyOffsets;
+    break;
+  case 64:
+    _frequencyOffsets = _64frequencyOffsets;
     break;
   default:
     bandSize = BAND_SIZE;

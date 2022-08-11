@@ -12,8 +12,7 @@
 #define SAMPLE_RATE 44100 // Audio Sample Rate
 
 /* Required defines for audio analysis */
-#define BAND_SIZE 32        // powers of 2 up to 32, defaults to 8
-#define NOISE_THRESHOLD 10 // threshold to be calculated into the bands
+#define BAND_SIZE 64        // powers of 2 up to 64, defaults to 8
 #include <AudioAnalysis.h>
 AudioAnalysis audioInfo;
 
