@@ -26,18 +26,22 @@ getBands    KEYWORD2
 getPeaks    KEYWORD2
 getBand KEYWORD2
 getBandAvg  KEYWORD2
+getBandMax  KEYWORD2
 getBandMaxIndex KEYWORD2
 getBandMinIndex KEYWORD2
 getPeak KEYWORD2
 getPeakAvg  KEYWORD2
+getPeakMax  KEYWORD2
 getPeakIndexMax KEYWORD2
 getPeakIndexMin KEYWORD2
+bandPeakFalloff KEYWORD2
 getVolumeUnit   KEYWORD2
 getVolumeUnitPeak   KEYWORD2
 getVolumeUnitMax    KEYWORD2
 getVolumeUnitMin    KEYWORD2
 getVolumeUnitPeakMax    KEYWORD2
 getVolumeUnitPeakMin    KEYWORD2
+vuPeakFalloff   KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)

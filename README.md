@@ -10,11 +10,12 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
   * Set a noise floor to ignore values below it.
   * Normalize values into desired min/max ranges.
   * Auto level values for dynamic audio enviroments.
+  * Ability to set the peak falloff rates and types. NO_FALLOFF, LINEAR_FALLOFF, ACCELERATE_FALLOFF, EXPONENTIAL_FALLOFF.
 * Easy to follow examples
   * `Basic` - Reads I2S microphone data to be viewed in the Serial Plotter.
   * `Frequencies` - Reads I2S microphone data, processes them into frequency buckets to be viewed in the Serial Plotter.
   * `FastLED` - Reads I2S microphone data, processes them into frequency buckets and displays them on a WS2812B led strip.
-  * `OLED` - coming soon.
+  * `OLED` - Reads I2S microphone data, processes them into frequency buckets and displays them on a 128x64 OLED display.
 
 
 ## Hardware 
@@ -40,18 +41,22 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
 * **void setNoiseFloor(float noiseFloor)** - threshold before sounds are registered
 * **void computeFrequencies(uint8_t band_size = BAND_SIZE)** - converts FFT data into frequency bands
 * **void normalize(bool normalize = true, float min = 0, float max = 1)** - normalize all values and constrain to min/max.
-* **void autoLevel(bool autoLevel, float min = 600, float max = 10000)** - auto ballance normalized values to ambient noise levels.
+* **void autoLevel(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.01, float min = 255, float max = -1)** - auto ballance normalized values to ambient noise levels. min and max are based on pre-normalized values.
+* **void bandPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05)** - set the falloff type and rate for band peaks.
+* **void vuPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05)** - set the falloff type and rate for volume unit peak.
 
 * **float \*getBands()** - gets the last bands calculated from processFrequencies()
 * **float \*getPeaks()** - gets the last peaks calculated from processFrequencies()
 
 * **float getBand(uint8_t index)** - gets the value at bands index
 * **float getBandAvg()** - average value across all bands
+* **float getBandMax()** - max value across all bands
 * **int getBandMaxIndex()** - index of the highest value band
 * **int getBandMinIndex()** - index of the lowest value band
 
 * **float getPeak(uint8_t index)** - gets the value at peaks index
 * **float getPeakAvg()** - average value across all peaks
+* **float getPeakMax()** - max value across all peaks
 * **int getPeakIndexMax()** - index of the highest value peak
 * **int getPeakIndexMin()** - index of the lowest value peak
 
@@ -59,12 +64,11 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
 * **float getVolumeUnit()** - gets the last volume unit calculated from processFrequencies()
 * **float getVolumeUnitPeak()** - gets the last volume unit peak calculated from processFrequencies()
 * **float getVolumeUnitMax()** - value of the highest value volume unit
-* **float getVolumeUnitMin()** - value of the lowest value volume unit
 * **float getVolumeUnitPeakMax()** - value of the highest value volume unit
-* **float getVolumeUnitPeakMin()** - value of the lowest value volume unit
+
 
 ## Example
-Checkout the `examples/Frequencies` and `examples/FastLED` examples folder for audio analysis.
+Checkout the `examples/Frequencies`, `examples/FastLED` and `examples/OLED_128x64` examples folder for audio analysis.
 ```c++
 /* Basic.ino */
 #include <AudioInI2S.h>

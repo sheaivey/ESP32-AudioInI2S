@@ -12,9 +12,7 @@
 #define SAMPLE_RATE 44100 // Audio Sample Rate
 
 /* Required defines for audio analysis */
-#define PEAK_FALLOFF_RATE 0.05 // rate at which the peaks fall, default 0.05
-#define BAND_SIZE 8            // powers of 2 up to 32, defaults to 8
-#define NOISE_THRESHOLD 10     // threshold to be calculated into the bands
+#define BAND_SIZE 8 // powers of 2 up to 32, defaults to 8
 #include <AudioAnalysis.h>
 AudioAnalysis audioInfo;
 
@@ -30,30 +28,36 @@ int32_t samples[SAMPLE_SIZE]; // I2S sample data is stored here
 
 void setup()
 {
-    mic.begin(SAMPLE_SIZE, SAMPLE_RATE); // Starts the I2S DMA port.
+  mic.begin(SAMPLE_SIZE, SAMPLE_RATE); // Starts the I2S DMA port.
+
+  // audio analysis setup
+  audioInfo.setNoiseFloor(10);       // sets the noise floor
+  audioInfo.normalize(true, 0, 255); // normalize all values to range provided.
+
+  audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 1, 1000, 10000); // set auto level falloff rate
+  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 0.05);   // set the band peak fall off rate
+  audioInfo.vuPeakFalloff(AudioAnalysis::ACCELERATE_FALLOFF, 0.5);       // set the volume unit peak fall off rate
 }
 
 void loop()
 {
-    mic.read(samples); // Stores the current I2S port buffer into samples.
-    audioInfo.computeFFT(samples, SAMPLE_SIZE, SAMPLE_RATE);
-    audioInfo.computeFrequencies(BAND_SIZE);
-    audioInfo.normalize(true, 0, 255);
-    audioInfo.autoLevel(true, 600, 10000);
+  mic.read(samples); // Stores the current I2S port buffer into samples.
+  audioInfo.computeFFT(samples, SAMPLE_SIZE, SAMPLE_RATE);
+  audioInfo.computeFrequencies(BAND_SIZE);
 
-    float *bands = audioInfo.getBands();
-    float *peaks = audioInfo.getPeaks();
-    float vuMeter = audioInfo.getVolumeUnit();
-    float vuMeterPeak = audioInfo.getVolumeUnitPeak();
+  float *bands = audioInfo.getBands();
+  float *peaks = audioInfo.getPeaks();
+  float vuMeter = audioInfo.getVolumeUnit();
+  float vuMeterPeak = audioInfo.getVolumeUnitPeak();
 
-    // Send data to serial plotter
-    for (int i = 0; i < BAND_SIZE; i++)
-    {
-        Serial.printf("%d:%.1f,", i, peaks[i]);
-    }
+  // Send data to serial plotter
+  for (int i = 0; i < BAND_SIZE; i++)
+  {
+    Serial.printf("%d:%.1f,", i, peaks[i]);
+  }
 
-    // also send the vu meter data
-    Serial.printf("vuValue:%.1f,vuPeak:%.2f", vuMeter, vuMeterPeak);
+  // also send the vu meter data
+  Serial.printf("vuValue:%.1f,vuPeak:%.2f", vuMeter, vuMeterPeak);
 
-    Serial.println();
+  Serial.println();
 }
