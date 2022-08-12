@@ -39,8 +39,12 @@ public:
   void computeFrequencies(uint8_t bandSize = BAND_SIZE);               // converts FFT data into frequency bands
   void normalize(bool normalize = true, float min = 0, float max = 1); // normalize all values and constrain to min/max.
 
-  void autoLevel(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.01, float min = 255, float max = -1); // auto ballance normalized values to ambient noise levels.
+  void autoLevel(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.01, float min = 10, float max = -1); // auto ballance normalized values to ambient noise levels.
                                                                                                                             // min and max are based on pre-normalized values.
+
+  bool isNormalize(); // is normalize enabled
+  bool isAutoLevel(); // is auto level enabled
+  bool isClipping();  // is values exceding max
 
   void bandPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05); // set the falloff type and rate for band peaks.
   void vuPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05);   // set the falloff type and rate for volume unit peak.
@@ -57,8 +61,8 @@ public:
   float getPeak(uint8_t index); // gets the value at peaks index
   float getPeakAvg();           // average value across all peaks
   float getPeakMax();           // max value across all peaks
-  int getPeakIndexMax();        // index of the highest value peak
-  int getPeakIndexMin();        // index of the lowest value peak
+  int getPeakMaxIndex();        // index of the highest value peak
+  int getPeakMinIndex();        // index of the lowest value peak
 
   /* Volume Unit Functions */
   float getVolumeUnit();        // gets the last volume unit calculated from processFrequencies()
@@ -69,8 +73,9 @@ public:
 protected:
   /* Library Settings */
   bool _isAutoLevel = false;
-  float _autoMin = 600;
-  float _autoMax = 10000;
+  bool _isClipping = false;
+  float _autoMin = 10; // lowest raw value the autoLevel will fall to before stopping. -1 = will auto level down to 0.
+  float _autoMax = -1; // highest raw value the autoLevel will rise to before clipping. -1 = will not have any clipping.
 
   bool _isNormalize = false;
   float _normalMin = 0;
@@ -84,6 +89,8 @@ protected:
   float _autoLevelFalloffRate = 0.01;
 
   float calculateFalloff(falloff_type falloffType, float falloffRate, float currentRate);
+  template <class X>
+  X mapAndClip(X x, X in_min, X in_max, X out_min, X out_max);
 
   /* FFT Variables */
   int32_t *_samples;
@@ -207,7 +214,7 @@ try_frequency_offsets_again:
     goto try_frequency_offsets_again;
   }
   _bandSize = bandSize;
-
+  _isClipping = false;
   // for normalize falloff rates
   if (_isAutoLevel)
   {
@@ -224,6 +231,7 @@ try_frequency_offsets_again:
   }
   int offset = 2; // first two values are noise
   _vu = 0;
+  _bandMax = 0;
   for (int i = 0; i < _bandSize; i++)
   {
     _bands[i] = 0;
@@ -269,6 +277,11 @@ try_frequency_offsets_again:
     if (_peaks[i] > _autoLevelPeakMax)
     {
       _autoLevelPeakMax = _peaks[i];
+      if (_isAutoLevel && _autoMax != -1 && _peaks[i] > _autoMax)
+      {
+        _isClipping = true;
+        _autoLevelPeakMax = _autoMax;
+      }
       _peakMaxIndex = i;
       _autoLevelPeakMaxFalloffRate = 0;
     }
@@ -306,6 +319,11 @@ try_frequency_offsets_again:
   if (_vuPeak > _autoLevelVuPeakMax)
   {
     _autoLevelVuPeakMax = _vuPeak;
+    if (_isAutoLevel && _autoMax != -1 && _vuPeak > _autoMax)
+    {
+      _isClipping = true;
+      _autoLevelVuPeakMax = _autoMax;
+    }
     _autoLevelMaxFalloffRate = 0;
   }
   if (_vuPeak < _vuPeakMin)
@@ -315,8 +333,18 @@ try_frequency_offsets_again:
 }
 
 template <class X>
-X map_Generic(X x, X in_min, X in_max, X out_min, X out_max)
+X AudioAnalysis::mapAndClip(X x, X in_min, X in_max, X out_min, X out_max)
 {
+  if (_isAutoLevel && _autoMax != -1 && x > _autoMax)
+  {
+    // clip the value to max
+    x = _autoMax;
+  }
+  else if (x > in_max)
+  {
+    // value is clipping
+    x = in_max;
+  }
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
@@ -367,13 +395,28 @@ void AudioAnalysis::autoLevel(falloff_type falloffType, float falloffRate, float
   _autoMax = max;
 }
 
+bool AudioAnalysis::isNormalize()
+{
+  return _isNormalize;
+}
+
+bool AudioAnalysis::isAutoLevel()
+{
+  return _isAutoLevel;
+}
+
+bool AudioAnalysis::isClipping()
+{
+  return _isClipping;
+}
+
 float *AudioAnalysis::getBands()
 {
   if (_isNormalize)
   {
     for (int i = 0; i < _bandSize; i++)
     {
-      _bandsNorms[i] = ::map_Generic(_bands[i], 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
+      _bandsNorms[i] = mapAndClip(_bands[i], 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
     }
     return _bandsNorms;
   }
@@ -388,7 +431,7 @@ float AudioAnalysis::getBand(uint8_t index)
   }
   if (_isNormalize)
   {
-    return ::map_Generic(_bands[index], 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
+    return mapAndClip(_bands[index], 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
   }
   return _bands[index];
 }
@@ -397,7 +440,7 @@ float AudioAnalysis::getBandAvg()
 {
   if (_isNormalize)
   {
-    return ::map_Generic(_bandAvg, 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
+    return mapAndClip(_bandAvg, 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
   }
   return _bandAvg;
 }
@@ -423,7 +466,7 @@ float *AudioAnalysis::getPeaks()
   {
     for (int i = 0; i < _bandSize; i++)
     {
-      _peaksNorms[i] = ::map_Generic(_peaks[i], 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
+      _peaksNorms[i] = mapAndClip(_peaks[i], 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
     }
     return _peaksNorms;
   }
@@ -438,7 +481,7 @@ float AudioAnalysis::getPeak(uint8_t index)
   }
   if (_isNormalize)
   {
-    return ::map_Generic(_peaks[index], 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
+    return mapAndClip(_peaks[index], 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
   }
   return _peaks[index];
 }
@@ -447,22 +490,22 @@ float AudioAnalysis::getPeakAvg()
 {
   if (_isNormalize)
   {
-    return ::map_Generic(_peakAvg, 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
+    return mapAndClip(_peakAvg, 0.0f, _autoLevelPeakMax, _normalMin, _normalMax);
   }
   return _peakAvg;
 }
 
 float AudioAnalysis::getPeakMax()
 {
-  return getPeak(getPeakIndexMax());
+  return getPeak(getPeakMaxIndex());
 }
 
-int AudioAnalysis::getPeakIndexMax()
+int AudioAnalysis::getPeakMaxIndex()
 {
   return _peakMaxIndex;
 }
 
-int AudioAnalysis::getPeakIndexMin()
+int AudioAnalysis::getPeakMinIndex()
 {
   return _peakMinIndex;
 }
@@ -471,7 +514,7 @@ float AudioAnalysis::getVolumeUnit()
 {
   if (_isNormalize)
   {
-    return ::map_Generic(_vu, 0.0f, _autoLevelVuPeakMax, _normalMin, _normalMax);
+    return mapAndClip(_vu, 0.0f, _autoLevelVuPeakMax, _normalMin, _normalMax);
   }
   return _vu;
 }
@@ -480,7 +523,7 @@ float AudioAnalysis::getVolumeUnitPeak()
 {
   if (_isNormalize)
   {
-    return ::map_Generic(_vuPeak, 0.0f, _autoLevelVuPeakMax, _normalMin, _normalMax);
+    return mapAndClip(_vuPeak, 0.0f, _autoLevelVuPeakMax, _normalMin, _normalMax);
   }
   return _vuPeak;
 }
@@ -489,7 +532,7 @@ float AudioAnalysis::getVolumeUnitMax()
 {
   if (_isNormalize)
   {
-    return ::map_Generic(_vuMax, 0.0f, _autoLevelVuPeakMax, _normalMin, _normalMax);
+    return mapAndClip(_vuMax, 0.0f, _autoLevelVuPeakMax, _normalMin, _normalMax);
   }
   return _vuMax;
 }
