@@ -9,7 +9,7 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
   * Volume Unit Meter.
   * Set a noise floor to ignore values below it.
   * Normalize values into desired min/max ranges.
-  * Auto level values for dynamic audio enviroments.
+  * Auto level values for noisy/quiet enviroments where you want to keep values around the normalize max.
   * Ability to set the peak falloff rates and types. NO_FALLOFF, LINEAR_FALLOFF, ACCELERATE_FALLOFF, EXPONENTIAL_FALLOFF.
 * Easy to follow examples
   * `Basic` - Reads I2S microphone data to be viewed in the Serial Plotter.
@@ -45,21 +45,21 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
 * **void autoLevel(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.01, float min = 255, float max = -1)** - auto ballance normalized values to ambient noise levels. min and max are based on pre-normalized values.
 * **void bandPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05)** - set the falloff type and rate for band peaks.
 * **void vuPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05)** - set the falloff type and rate for volume unit peak.
-
+* **isNormalize()** - is normalize enabled
+* **isAutoLevel()** - is auto level enabled
+* **isClipping()** - is values exceding max
 * **float \*getBands()** - gets the last bands calculated from processFrequencies()
 * **float \*getPeaks()** - gets the last peaks calculated from processFrequencies()
-
 * **float getBand(uint8_t index)** - gets the value at bands index
 * **float getBandAvg()** - average value across all bands
 * **float getBandMax()** - max value across all bands
 * **int getBandMaxIndex()** - index of the highest value band
 * **int getBandMinIndex()** - index of the lowest value band
-
 * **float getPeak(uint8_t index)** - gets the value at peaks index
 * **float getPeakAvg()** - average value across all peaks
 * **float getPeakMax()** - max value across all peaks
-* **int getPeakIndexMax()** - index of the highest value peak
-* **int getPeakIndexMin()** - index of the lowest value peak
+* **int getPeakMaxIndex()** - index of the highest value peak
+* **int getPeakMinIndex()** - index of the lowest value peak
 
 **Volume Unit Functions**
 * **float getVolumeUnit()** - gets the last volume unit calculated from processFrequencies()
@@ -94,7 +94,6 @@ void setup() {
 
 void loop() {
     mic.read(samples); // Stores the current I2S port buffer into samples.
-
     // Send data to serial plotter
     for(int i = 0; i < SAMPLE_SIZE; i++) {
         Serial.println(samples[i]);
