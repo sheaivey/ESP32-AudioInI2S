@@ -12,7 +12,7 @@
 #define SAMPLE_RATE 44100 // Audio Sample Rate
 
 /* Required defines for audio analysis */
-#define BAND_SIZE 64        // powers of 2 up to 64, defaults to 8
+#define BAND_SIZE 64 // powers of 2 up to 64, defaults to 8
 #include <AudioAnalysis.h>
 AudioAnalysis audioInfo;
 
@@ -33,9 +33,11 @@ TwoWire fasterWire = TwoWire(0);
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define FRAME_RATE 30
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &fasterWire, OLED_RESET);
+unsigned long nextFrame = 0;
 
 void setup()
 {
@@ -45,20 +47,38 @@ void setup()
   audioInfo.setNoiseFloor(10);                     // sets the noise floor
   audioInfo.normalize(true, 0, SCREEN_HEIGHT - 1); // normalize all values to range provided.
 
-  audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 10, 300, 10000); // set auto level falloff rate
-  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 0.05);    // set the band peak fall off rate
-  audioInfo.vuPeakFalloff(AudioAnalysis::ACCELERATE_FALLOFF, 0.5);        // set the volume unit peak fall off rate
+  audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 10, 255, 255); // set auto level falloff rate
+  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, .05);   // set the band peak fall off rate
 
+  // OLED setup
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
 }
 
 void loop()
 {
+  if (nextFrame > millis())
+  {
+    return;
+  }
+  // enforce a predictable frame rate
+  nextFrame = millis() + (1000 / FRAME_RATE);
+
+  processSamples(); // does all the reading and frequency calculations
+
+  /* RENDER MODES */
+  renderFrequencies(); // renders the all the bands to the OLED
+}
+
+void processSamples()
+{
   mic.read(samples); // Stores the current I2S port buffer into samples.
   audioInfo.computeFFT(samples, SAMPLE_SIZE, SAMPLE_RATE);
   audioInfo.computeFrequencies(BAND_SIZE);
+}
 
+void renderFrequencies()
+{
   float *bands = audioInfo.getBands();
   float *peaks = audioInfo.getPeaks();
 

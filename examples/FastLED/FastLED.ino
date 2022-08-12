@@ -4,6 +4,8 @@
 
     Reads I2S microphone data into samples[], processes them into frequency buckets and then outputs it to an LED strip for viewing.
     Try wistling differrent tones to see which frequency buckets they fall into.
+
+    TIP: uncomment renderBeatRainbow() for a music beat visualization.
 */
 
 #include <AudioInI2S.h>
@@ -12,7 +14,7 @@
 #define SAMPLE_RATE 44100 // Audio Sample Rate
 
 /* Required defines for audio analysis */
-#define BAND_SIZE 8        // powers of 2 up to 64, defaults to 8
+#define BAND_SIZE 8 // powers of 2 up to 64, defaults to 8
 #include <AudioAnalysis.h>
 AudioAnalysis audioInfo;
 
@@ -27,9 +29,13 @@ AudioInI2S mic(MIC_BCK_PIN, MIC_WS_PIN, MIC_DATA_PIN, MIC_CHANNEL_SELECT_PIN); /
 int32_t samples[SAMPLE_SIZE]; // I2S sample data is stored here
 
 #include "FastLED.h"
-#define NUM_LEDS 70
+#define NUM_LEDS 72
 #define LED_PIN 13
+#define MAX_BRIGHTNESS 80 // save your eyes
+#define FRAME_RATE 30
 CRGB leds[NUM_LEDS];
+unsigned long nextFrame = 0;
+unsigned long tick = 0;
 
 void setup()
 {
@@ -39,32 +45,56 @@ void setup()
   audioInfo.setNoiseFloor(10);       // sets the noise floor
   audioInfo.normalize(true, 0, 255); // normalize all values to range provided.
 
-  audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 1, 100, 10000); // set auto level falloff rate
-  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 0.05);   // set the band peak fall off rate
-  audioInfo.vuPeakFalloff(AudioAnalysis::ACCELERATE_FALLOFF, 0.5);       // set the volume unit peak fall off rate
+  audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 1, 255, 1000); // set auto level falloff rate
+  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 1);     // set the band peak fall off rate
+  audioInfo.vuPeakFalloff(AudioAnalysis::ACCELERATE_FALLOFF, 1);        // set the volume unit peak fall off rate
 
+  // FastLED setup
   FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
-  FastLED.setBrightness(80);
+  FastLED.setBrightness(MAX_BRIGHTNESS);
   FastLED.show();
 }
 
 void loop()
 {
+  if (nextFrame > millis())
+  {
+    return;
+  }
+  // enforce a predictable frame rate
+  nextFrame = millis() + (1000 / FRAME_RATE);
+  tick++;
+
+  processSamples(); // does all the reading and frequency calculations
+
+  /* RENDER MODES */
+  renderBasicTest(); // bands and volume unit visualization
+  // renderBeatRainbow(); // uncommnet this line for a music beat visualization
+}
+
+void processSamples()
+{
   mic.read(samples); // Stores the current I2S port buffer into samples.
   audioInfo.computeFFT(samples, SAMPLE_SIZE, SAMPLE_RATE);
   audioInfo.computeFrequencies(BAND_SIZE);
+}
 
+void renderBasicTest()
+{
   float *bands = audioInfo.getBands();
   float *peaks = audioInfo.getPeaks();
   int vuMeter = audioInfo.getVolumeUnit();
   int vuMeterPeak = audioInfo.getVolumeUnitPeak();
   int vuMeterPeakMax = audioInfo.getVolumeUnitPeakMax();
 
+  leds[BAND_SIZE] = CRGB(0, 0, 0);
+
   // equilizer first BAND_SIZE
   for (int i = 0; i < BAND_SIZE; i++)
   {
     leds[i] = CHSV(i * (200 / BAND_SIZE), 255, (int)peaks[i]);
   }
+
   // volume unit meter rest of leds
   uint8_t vuLed = (uint8_t)map(vuMeter, 0, vuMeterPeakMax, BAND_SIZE + 1, NUM_LEDS - 1);
   uint8_t vuLedPeak = (uint8_t)map(vuMeterPeak, 0, vuMeterPeakMax, BAND_SIZE + 1, NUM_LEDS - 1);
@@ -78,6 +108,26 @@ void loop()
     if (i == vuLedPeak)
     {
       leds[i] = CRGB(50, 50, 50);
+    }
+  }
+
+  FastLED.show();
+}
+
+void renderBeatRainbow()
+{
+  float *peaks = audioInfo.getPeaks();
+  int vuMeterPeak = audioInfo.getVolumeUnitPeak();
+  int vuMeter = audioInfo.getVolumeUnit();
+  for (int i = 0; i < NUM_LEDS; i++)
+  {
+    // bass/beat = rainbow
+    leds[i] = CHSV((tick / 2) % 255, 255, peaks[0]);
+
+    // claps/highs = white twinkles
+    if (audioInfo.getBandMaxIndex() >= 5 && random(0, 20) == 0) //(i + tick * 3) % 10 == 0)
+    {
+      leds[i] = CRGB(255, 255, 255);
     }
   }
 

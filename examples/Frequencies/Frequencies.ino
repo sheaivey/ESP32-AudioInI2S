@@ -4,6 +4,8 @@
 
     Reads I2S microphone data into samples[], processes them into frequency buckets and then outputs it to the serial plotter for viewing.
     Try wistling differrent tones to see which frequency buckets they fall into.
+
+    TIP: uncomment the audioInfo.autoLevel() to see how the loud and quiet noises are handled.
 */
 
 #include <AudioInI2S.h>
@@ -28,15 +30,16 @@ int32_t samples[SAMPLE_SIZE]; // I2S sample data is stored here
 
 void setup()
 {
+  Serial.begin(115200);
   mic.begin(SAMPLE_SIZE, SAMPLE_RATE); // Starts the I2S DMA port.
 
   // audio analysis setup
   audioInfo.setNoiseFloor(10);       // sets the noise floor
   audioInfo.normalize(true, 0, 255); // normalize all values to range provided.
 
-  audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 1, 1000, 10000); // set auto level falloff rate
-  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 0.05);   // set the band peak fall off rate
-  audioInfo.vuPeakFalloff(AudioAnalysis::ACCELERATE_FALLOFF, 0.5);       // set the volume unit peak fall off rate
+  // audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 1); // uncomment this line to set auto level falloff rate
+  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 0.05); // set the band peak fall off rate
+  audioInfo.vuPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 0.05);    // set the volume unit peak fall off rate
 }
 
 void loop()
