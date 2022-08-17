@@ -116,18 +116,44 @@ void renderBasicTest()
 
 void renderBeatRainbow()
 {
+  float *bands = audioInfo.getBands();
   float *peaks = audioInfo.getPeaks();
-  int vuMeterPeak = audioInfo.getVolumeUnitPeak();
-  int vuMeter = audioInfo.getVolumeUnit();
+  int peakBandIndex = audioInfo.getBandMaxIndex();
+  static int beatCount = 0;
+
+  bool beatDetected = false;
+  bool clapsDetected = false;
+  // beat detection
+  if (peaks[1] == bands[1]) // new peak for bass must be a beat
+  {
+    beatCount++;
+    beatDetected = true;
+  }
+  if (peakBandIndex >= BAND_SIZE / 2)
+  {
+    clapsDetected = true;
+  }
+
   for (int i = 0; i < NUM_LEDS; i++)
   {
+    leds[i] = blend(leds[i], CRGB(0, 0, 0), 100); // fade to black over time
+
     // bass/beat = rainbow
-    leds[i] = CHSV((tick / 2) % 255, 255, peaks[0]);
+    if (beatDetected)
+    {
+      if (random(0, 10 - ((float)peaks[1] / (float)255 * 10.0)) == 0)
+      {
+        leds[i] = CHSV((beatCount * 10) % 255, 255, 255);
+      }
+    }
 
     // claps/highs = white twinkles
-    if (audioInfo.getBandMaxIndex() >= 5 && random(0, 20) == 0) //(i + tick * 3) % 10 == 0)
+    if (clapsDetected)
     {
-      leds[i] = CRGB(255, 255, 255);
+      if (random(0, 40 - ((float)peakBandIndex / (float)BAND_SIZE * 10.0)) == 0)
+      {
+        leds[i] = CRGB(255, 255, 255);
+      }
     }
   }
 
