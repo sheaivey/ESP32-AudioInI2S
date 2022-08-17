@@ -179,6 +179,7 @@ void AudioAnalysis::setNoiseFloor(float noiseFloor)
 
 void AudioAnalysis::computeFrequencies(uint8_t bandSize)
 {
+  // TODO: use maths to calculate these offset values. Inputs being _sampleSize and _bandSize output being similar exponential curve below.
   // band offsets helpers based on 1024 samples
   const static uint16_t _2frequencyOffsets[2] = {24, 359};
   const static uint16_t _4frequencyOffsets[4] = {6, 18, 72, 287};
@@ -229,12 +230,28 @@ try_frequency_offsets_again:
       _autoLevelVuPeakMax -= _autoLevelMaxFalloffRate;
     }
   }
-  int offset = 2; // first two values are noise
   _vu = 0;
   _bandMax = 0;
+  _bandAvg = 0;
+  _peakAvg = 0;
+  _bandMaxIndex = -1;
+  _bandMinIndex = -1;
+  _peakMaxIndex = -1;
+  _peakMinIndex = -1;
+  int offset = 0; // first two values are noise
   for (int i = 0; i < _bandSize; i++)
   {
     _bands[i] = 0;
+    // handle band peaks fall off
+    _peakFallRate[i] = calculateFalloff(_bandPeakFalloffType, _bandPeakFalloffRate, _peakFallRate[i]);
+    if (_peaks[i] - _peakFallRate[i] <= _bands[i])
+    {
+      _peaks[i] = _bands[i] + 0.01;
+    }
+    else
+    {
+      _peaks[i] -= _peakFallRate[i]; // fall off rate
+    }
     for (int j = 0; j < _frequencyOffsets[i]; j++)
     {
       // scale down factor to prevent overflow
@@ -253,9 +270,7 @@ try_frequency_offsets_again:
     {
       _bands[i] = 0;
     }
-    // handle band peaks fall off
-    _peakFallRate[i] = calculateFalloff(_bandPeakFalloffType, _bandPeakFalloffRate, _peakFallRate[i]);
-    _peaks[i] -= _peakFallRate[i]; // fall off rate
+
     if (_bands[i] > _peaks[i])
     {
       _peakFallRate[i] = 0;
@@ -263,7 +278,7 @@ try_frequency_offsets_again:
     }
 
     // handle min/max band
-    if (_bands[i] > _bandMax)
+    if (_bands[i] > _bandMax && _bands[i] > _noiseFloor)
     {
       _bandMax = _bands[i];
       _bandMaxIndex = i;
@@ -285,7 +300,7 @@ try_frequency_offsets_again:
       _peakMaxIndex = i;
       _autoLevelPeakMaxFalloffRate = 0;
     }
-    if (_peaks[i] < _peakMin)
+    if (_peaks[i] < _peakMin && _peaks[i] > _noiseFloor)
     {
       _peakMin = _peaks[i];
       _peakMinIndex = i;
@@ -425,7 +440,7 @@ float *AudioAnalysis::getBands()
 
 float AudioAnalysis::getBand(uint8_t index)
 {
-  if (index >= _bandSize)
+  if (index >= _bandSize || index < 0)
   {
     return 0;
   }
@@ -475,7 +490,7 @@ float *AudioAnalysis::getPeaks()
 
 float AudioAnalysis::getPeak(uint8_t index)
 {
-  if (index >= _bandSize)
+  if (index >= _bandSize || index < 0)
   {
     return 0;
   }
