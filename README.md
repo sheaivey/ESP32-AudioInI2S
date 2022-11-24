@@ -11,6 +11,7 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
   * Normalize values into desired min/max ranges.
   * Auto level values for noisy/quiet enviroments where you want to keep values around the normalize max.
   * Ability to set the peak falloff rates and types. NO_FALLOFF, LINEAR_FALLOFF, ACCELERATE_FALLOFF, EXPONENTIAL_FALLOFF.
+  * Equalizer to adjust the frequency levels for each bucket. Good for lowering the bass or trebble response depending on the enviroment.
 * Easy to follow examples
   * `Basic` - Reads I2S microphone data to be viewed in the Serial Plotter.
   * `Frequencies` - Reads I2S microphone data, processes them into frequency buckets to be viewed in the Serial Plotter.
@@ -43,6 +44,9 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
 * **void computeFrequencies(uint8_t band_size = BAND_SIZE)** - converts FFT data into frequency bands
 * **void normalize(bool normalize = true, float min = 0, float max = 1)** - normalize all values and constrain to min/max.
 * **void autoLevel(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.01, float min = 255, float max = -1)** - auto ballance normalized values to ambient noise levels. min and max are based on pre-normalized values.
+* **void setEqualizerLevels(float low = 1, float mid = 1, float high = 1 )** adjust the frequency levels for a given range - low, medium and high. 0.5 = 50%, 1.0 = 100%, 1.5 = 150%  the raw value etc.
+* **void setEqualizerLevels(float *bandEq)** - full control over each bands eq value. Array of float percentage values 1.0 = 100% [BAND_SIZE ...]
+* **float *getEqualizerLevels(); // gets the last bandEq levels
 * **void bandPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05)** - set the falloff type and rate for band peaks.
 * **void vuPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05)** - set the falloff type and rate for volume unit peak.
 * **isNormalize()** - is normalize enabled

@@ -37,6 +37,8 @@ getPeakAvg  KEYWORD2
 getPeakMax  KEYWORD2
 getPeakMaxIndex KEYWORD2
 getPeakMinIndex KEYWORD2
+setEqualizerLevels KEYWORD2
+getEqualizerLevels KEYWORD2
 bandPeakFalloff KEYWORD2
 getVolumeUnit   KEYWORD2
 getVolumeUnitPeak   KEYWORD2

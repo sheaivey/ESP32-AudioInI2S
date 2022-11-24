@@ -9,6 +9,7 @@
 // if you are going for speed over percision uncomment the lines below.
 //#define FFT_SPEED_OVER_PRECISION
 //#define FFT_SQRT_APPROXIMATION
+
 #include <arduinoFFT.h>
 
 #ifndef SAMPLE_SIZE
@@ -17,6 +18,7 @@
 #ifndef BAND_SIZE
 #define BAND_SIZE 8
 #endif
+
 class AudioAnalysis
 {
 public:
@@ -41,16 +43,21 @@ public:
 
   void autoLevel(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.01, float min = 10, float max = -1); // auto ballance normalized values to ambient noise levels.
                                                                                                                             // min and max are based on pre-normalized values.
+  void setEqualizerLevels(float low = 1, float mid = 1, float high = 1 );   // adjust the frequency levels for a given range - low, medium and high.
+                                                                            // 0.5 = 50%, 1.0 = 100%, 1.5 = 150%  the raw value etc.
+  void setEqualizerLevels(float *bandEq);                                   // full control over each bands eq value.
+  float *getEqualizerLevels(); // gets the last bandEq levels
 
-  bool isNormalize(); // is normalize enabled
+  bool
+  isNormalize();      // is normalize enabled
   bool isAutoLevel(); // is auto level enabled
   bool isClipping();  // is values exceding max
 
   void bandPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05); // set the falloff type and rate for band peaks.
   void vuPeakFalloff(falloff_type falloffType = ACCELERATE_FALLOFF, float falloffRate = 0.05);   // set the falloff type and rate for volume unit peak.
 
-  float *getBands(); // gets the last bands calculated from processFrequencies()
-  float *getPeaks(); // gets the last peaks calculated from processFrequencies()
+  float *getBands(); // gets the last bands calculated from computeFrequencies()
+  float *getPeaks(); // gets the last peaks calculated from computeFrequencies()
 
   float getBand(uint8_t index); // gets the value at bands index
   float getBandAvg();           // average value across all bands
@@ -65,8 +72,8 @@ public:
   int getPeakMinIndex();        // index of the lowest value peak
 
   /* Volume Unit Functions */
-  float getVolumeUnit();        // gets the last volume unit calculated from processFrequencies()
-  float getVolumeUnitPeak();    // gets the last volume unit peak calculated from processFrequencies()
+  float getVolumeUnit();        // gets the last volume unit calculated from computeFrequencies()
+  float getVolumeUnitPeak();    // gets the last volume unit peak calculated from computeFrequencies()
   float getVolumeUnitMax();     // value of the highest value volume unit
   float getVolumeUnitPeakMax(); // value of the highest value volume unit
 
@@ -108,6 +115,7 @@ protected:
   float _peakFallRate[BAND_SIZE];
   float _peaksNorms[BAND_SIZE];
   float _bandsNorms[BAND_SIZE];
+  float _bandEq[BAND_SIZE];
 
   float _bandAvg;
   float _peakAvg;
@@ -137,6 +145,11 @@ protected:
 
 AudioAnalysis::AudioAnalysis()
 {
+  // set default eq levels;
+  for (int i = 0; i < _bandSize; i++)
+  {
+    _bandEq[i] = 1.0;
+  }
 }
 
 void AudioAnalysis::computeFFT(int32_t *samples, int sampleSize, int sampleRate)
@@ -177,6 +190,96 @@ void AudioAnalysis::setNoiseFloor(float noiseFloor)
   _noiseFloor = noiseFloor;
 }
 
+float getPoint(float n1, float n2, float percent)
+{
+  float diff = n2 - n1;
+
+  return n1 + (diff * percent);
+}
+
+void AudioAnalysis::setEqualizerLevels(float low, float mid, float high)
+{
+  float xa, ya, xb, yb, x, y;
+  // low curve
+  float x1 = 0;
+  float lowSize = _bandSize / 4;
+  float y1 = low;
+  float x2 = lowSize / 2;
+  float y2 = low;
+  float x3 = lowSize;
+  float y3 = (low + mid)/2.0;
+  for (int i = x1; i < lowSize; i++)
+  {
+    float p = (float)i / (float)lowSize;
+    //xa = getPoint(x1, x2, p);
+    ya = getPoint(y1, y2, p);
+    //xb = getPoint(x2, x3, p);
+    yb = getPoint(y2, y3, p);
+
+    //x = getPoint(xa, xb, p);
+    y = getPoint(ya, yb, p);
+
+    _bandEq[i] = y;
+  }
+
+  // mid curve
+  x1 = lowSize;
+  float midSize = (_bandSize-lowSize) / 2;
+  y1 = y3;
+  x2 = x1 + midSize / 2;
+  y2 = mid;
+  x3 = x1 + midSize;
+  y3 = (mid + high) / 2.0;
+  for (int i = x1; i < x1+midSize; i++)
+  {
+    float p = (float)(i - x1) / (float)midSize;
+    // xa = getPoint(x1, x2, p);
+    ya = getPoint(y1, y2, p);
+    // xb = getPoint(x2, x3, p);
+    yb = getPoint(y2, y3, p);
+
+    // x = getPoint(xa, xb, p);
+    y = getPoint(ya, yb, p);
+
+    _bandEq[i] = y;
+  }
+
+  // high curve
+  x1 = lowSize + midSize;
+  float highSize = midSize;
+  y1 = y3;
+  x2 = x1 + highSize / 2;
+  y2 = high;
+  x3 = x1 + highSize;
+  y3 = high;
+  for (int i = x1; i < x1+highSize; i++)
+  {
+    float p = (float)(i - x1) / (float)highSize;
+    // xa = getPoint(x1, x2, p);
+    ya = getPoint(y1, y2, p);
+    // xb = getPoint(x2, x3, p);
+    yb = getPoint(y2, y3, p);
+
+    // x = getPoint(xa, xb, p);
+    y = getPoint(ya, yb, p);
+
+    _bandEq[i] = y;
+  }
+}
+
+void AudioAnalysis::setEqualizerLevels(float *bandEq)
+{
+  // blind copy of eq percentages
+  for(int i = 0; i < _bandSize; i++) {
+    _bandEq[i] = bandEq[i];
+  }
+}
+
+float *AudioAnalysis::getEqualizerLevels()
+{
+  return _bandEq;
+}
+
 void AudioAnalysis::computeFrequencies(uint8_t bandSize)
 {
   // TODO: use maths to calculate these offset values. Inputs being _sampleSize and _bandSize output being similar exponential curve below.
@@ -184,7 +287,7 @@ void AudioAnalysis::computeFrequencies(uint8_t bandSize)
   const static uint16_t _2frequencyOffsets[2] = {24, 359};
   const static uint16_t _4frequencyOffsets[4] = {6, 18, 72, 287};
   const static uint16_t _8frequencyOffsets[8] = {2, 4, 6, 12, 25, 47, 92, 195};
-  const static uint16_t _16frequencyOffsets[16] = {1, 1, 2, 2, 2, 4, 5, 7, 11, 14, 19, 28, 38, 54, 75, 120};
+  const static uint16_t _16frequencyOffsets[16] = {1, 1, 2, 2, 2, 4, 5, 7, 11, 14, 19, 28, 38, 54, 75, 120}; // initial 
   // 32 and 64 frequency offsets are low end biased because of int math... the first 4 and 8 buckets should be 0.5f but we cant do that here.
   const static uint16_t _32frequencyOffsets[32] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 5, 5, 7, 7, 8, 8, 14, 14, 19, 19, 27, 27, 37, 37, 60, 60};
   const static uint16_t _64frequencyOffsets[64] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 7, 7, 7, 7, 8, 8, 8, 8, 13, 13, 13, 13, 18, 18, 18, 18, 30, 30, 30, 30}; // low end biased because of int
@@ -238,7 +341,7 @@ try_frequency_offsets_again:
   _bandMinIndex = -1;
   _peakMaxIndex = -1;
   _peakMinIndex = -1;
-  int offset = 0; // first two values are noise
+  int offset = 2; // first two values are noise
   for (int i = 0; i < _bandSize; i++)
   {
     _bands[i] = 0;
@@ -246,7 +349,7 @@ try_frequency_offsets_again:
     _peakFallRate[i] = calculateFalloff(_bandPeakFalloffType, _bandPeakFalloffRate, _peakFallRate[i]);
     if (_peaks[i] - _peakFallRate[i] <= _bands[i])
     {
-      _peaks[i] = _bands[i] + 0.01;
+      _peaks[i] = _bands[i];
     }
     else
     {
@@ -259,6 +362,8 @@ try_frequency_offsets_again:
       int iv = (_imag[offset + j] / (0xFFFF * 0xFF));
       // some smoothing with imaginary numbers.
       rv = sqrt(rv * rv + iv * iv);
+      // add eq offsets
+      rv = rv * _bandEq[i];
       // combine band amplitudes for current band segment
       _bands[i] += rv;
       _vu += rv;

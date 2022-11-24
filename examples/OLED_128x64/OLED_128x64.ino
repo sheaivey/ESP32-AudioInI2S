@@ -50,6 +50,8 @@ void setup()
   audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 10, 255, 255); // set auto level falloff rate
   audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, .05);   // set the band peak fall off rate
 
+  audioInfo.setEqualizerLevels(0.75, 1.25, 1.5); // set the equlizer offsets
+
   // OLED setup
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
@@ -81,17 +83,30 @@ void renderFrequencies()
 {
   float *bands = audioInfo.getBands();
   float *peaks = audioInfo.getPeaks();
+  float *bandEq = audioInfo.getEqualizerLevels();
 
   display.clearDisplay();
 
-  // equilizer first BAND_SIZE
   int offset = 0;
 #define BAND_WIDTH SCREEN_WIDTH / BAND_SIZE
+#define HALF_SCREEN (float)SCREEN_HEIGHT / 2.0
   for (int i = 0; i < BAND_SIZE; i++)
   {
+    // band frequency
     display.fillRect(offset, (SCREEN_HEIGHT - 1) - bands[i], BAND_WIDTH - 1, SCREEN_HEIGHT + 2, SSD1306_WHITE);
     display.drawLine(offset, (SCREEN_HEIGHT - 1) - peaks[i], offset + BAND_WIDTH - 2, (SCREEN_HEIGHT - 1) - peaks[i], SSD1306_WHITE);
 
+    // equlizer curve
+    if (i != BAND_SIZE - 1)
+    {
+      display.drawLine(
+          offset + (BAND_WIDTH / 2),                           // x1
+          (SCREEN_HEIGHT - 1) - (HALF_SCREEN * bandEq[i]),     // y1
+          offset + BAND_WIDTH - 1 + (BAND_WIDTH / 2),          // x2
+          (SCREEN_HEIGHT - 1) - (HALF_SCREEN * bandEq[i + 1]), // y1
+          SSD1306_WHITE                                        // color
+      );
+    }
     offset += BAND_WIDTH;
   }
 

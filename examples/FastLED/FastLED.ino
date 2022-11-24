@@ -119,17 +119,18 @@ void renderBeatRainbow()
   float *bands = audioInfo.getBands();
   float *peaks = audioInfo.getPeaks();
   int peakBandIndex = audioInfo.getBandMaxIndex();
+  int peakBandValue = audioInfo.getBand(peakBandIndex);
   static int beatCount = 0;
 
   bool beatDetected = false;
   bool clapsDetected = false;
   // beat detection
-  if (peaks[1] == bands[1]) // new peak for bass must be a beat
+  if (peaks[0] == bands[0] && peaks[0] > 0) // new peak for bass must be a beat
   {
     beatCount++;
     beatDetected = true;
   }
-  if (peakBandIndex >= BAND_SIZE / 2)
+  if (peakBandIndex >= BAND_SIZE / 2 && peakBandValue > 0)
   {
     clapsDetected = true;
   }
