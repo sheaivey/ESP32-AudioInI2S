@@ -1,5 +1,5 @@
 /*
-    Frequencies.ino
+    FastLED.ino
     By Shea Ivey
 
     Reads I2S microphone data into samples[], processes them into frequency buckets and then outputs it to an LED strip for viewing.
@@ -19,17 +19,23 @@
 AudioAnalysis audioInfo;
 
 // ESP32 S2 Mini
-#define MIC_BCK_PIN 4             // Clock pin from the mic.
-#define MIC_WS_PIN 39             // WS pin from the mic.
-#define MIC_DATA_PIN 5            // Data pin from the mic.
-#define MIC_CHANNEL_SELECT_PIN 40 // Pin to select the channel output from the mic.
+// #define MIC_BCK_PIN 4             // Clock pin from the mic.
+// #define MIC_WS_PIN 39             // WS pin from the mic.
+// #define MIC_DATA_PIN 5            // SD pin data from the mic.
+// #define MIC_CHANNEL_SELECT_PIN 40 // Left/Right pin to select the channel output from the mic.
+
+// ESP32 TTGO T-Display
+#define MIC_BCK_PIN 32            // Clock pin from the mic.
+#define MIC_WS_PIN 25             // WS pin from the mic.
+#define MIC_DATA_PIN 33           // SD pin data from the mic.
+#define MIC_CHANNEL_SELECT_PIN 27 // Left/Right pin to select the channel output from the mic.
 
 AudioInI2S mic(MIC_BCK_PIN, MIC_WS_PIN, MIC_DATA_PIN, MIC_CHANNEL_SELECT_PIN); // defaults to RIGHT channel.
 
 int32_t samples[SAMPLE_SIZE]; // I2S sample data is stored here
 
 #include "FastLED.h"
-#define NUM_LEDS 72
+#define NUM_LEDS 144 // 1 meter strip
 #define LED_PIN 13
 #define MAX_BRIGHTNESS 80 // save your eyes
 #define FRAME_RATE 30

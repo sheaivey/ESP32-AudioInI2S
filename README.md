@@ -11,7 +11,7 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
   * Normalize values into desired min/max ranges.
   * Auto level values for noisy/quiet enviroments where you want to keep values around the normalize max.
   * Ability to set the peak falloff rates and types. NO_FALLOFF, LINEAR_FALLOFF, ACCELERATE_FALLOFF, EXPONENTIAL_FALLOFF.
-  * Equalizer to adjust the frequency levels for each bucket. Good for lowering the bass or trebble response depending on the enviroment.
+  * Equalizer to adjust the frequency levels for each bucket. Good for lowering the bass or treble response depending on the enviroment.
 * Easy to follow examples
   * `Basic` - Reads I2S microphone data to be viewed in the Serial Plotter.
   * `Frequencies` - Reads I2S microphone data, processes them into frequency buckets to be viewed in the Serial Plotter.
