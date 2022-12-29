@@ -92,14 +92,14 @@ void setup()
   pinMode(BUTTON_PIN2, INPUT);
 
   // audio analysis setup
-  audioInfo.setNoiseFloor(20);                     // sets the noise floor
+  audioInfo.setNoiseFloor(1);                     // sets the noise floor
   audioInfo.normalize(true, 0, SCREEN_HEIGHT - 1); // normalize all values to range provided.
 
-  audioInfo.autoLevel(AudioAnalysis::EXPONENTIAL_FALLOFF, .001, 50, -1); // set auto level falloff rate
+  audioInfo.autoLevel(AudioAnalysis::EXPONENTIAL_FALLOFF, .001, 10, -1); // set auto level falloff rate
   audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 1);   // set the band peak fall off rate
   audioInfo.vuPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, .01);       // set the volume unit peak fall off rate
 
-  audioInfo.setEqualizerLevels(.5, 1, 1); // set the equlizer offsets
+  audioInfo.setEqualizerLevels(1, 1, 1); // set the equlizer offsets
 
   // TFT setup
   tft.init();
@@ -176,7 +176,7 @@ void loop()
       renderOscilloscope(); // render raw samples
       break;
     case 2:
-      renderRadarOscilloscope();
+      renderCircleOscilloscope();
       break;
     case 3:
       renderRadarFrequencies();
@@ -249,7 +249,7 @@ void renderFrequencies()
           (SCREEN_HEIGHT - 1) - (HALF_SCREEN * bandEq[i]),     // y1
           offset + BAND_WIDTH - 1 + (BAND_WIDTH / 2),          // x2
           (SCREEN_HEIGHT - 1) - (HALF_SCREEN * bandEq[i + 1]), // y1
-          tft.color565(127, 127, 127)                          // color
+          tft.color565(25, 25, 25)                          // color
       );
     }
 
@@ -402,7 +402,7 @@ void renderAppleFrequencies()
           (HALF_SCREEN - 1) - (HALF_SCREEN/2 * bandEq[i]),     // y1
           offset + BAND_WIDTH - 1 + (BAND_WIDTH / 2),          // x2
           (HALF_SCREEN - 1) - (HALF_SCREEN/2 * bandEq[i + 1]), // y1
-          tft.color565(127, 127, 127)                          // color
+          tft.color565(25, 25, 25)                          // color
       );
       // lower
       canvas.drawLine(
@@ -410,7 +410,7 @@ void renderAppleFrequencies()
           (HALF_SCREEN - 1) - (HALF_SCREEN / 2 * -bandEq[i]),     // y1
           offset + BAND_WIDTH - 1 + (BAND_WIDTH / 2),             // x2
           (HALF_SCREEN - 1) - (HALF_SCREEN / 2 * -bandEq[i + 1]), // y1
-          tft.color565(127, 127, 127)                             // color
+          tft.color565(25, 25, 25)                             // color
       );
     }
 
@@ -463,14 +463,13 @@ void renderFrequenciesHeatmap()
 
   uint16_t *buffer = canvas.getBuffer();
   uint16_t c565;
-
   // shift value to the right
   for (int y = 0; y < SCREEN_HEIGHT; y++)
   {
-    for (int x = SCREEN_WIDTH-2; x >= 0; x--)
+    for (int x = 1; x < SCREEN_WIDTH; x++)
     {
       c565 = buffer[y * SCREEN_WIDTH + x];
-      buffer[(y * SCREEN_WIDTH) + x+1] = c565;
+      buffer[(y * SCREEN_WIDTH) + x-1] = c565;
     }
   }
   float radius;
@@ -478,10 +477,11 @@ void renderFrequenciesHeatmap()
   float x0, x1;
   float y0, y1;
 
+  canvas.drawLine(SCREEN_WIDTH - 1, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT, 0);
   for (int i = 0; i < audioInfo.getBandSize(); i++)
   {
-    x0=0;
-    x1=0;
+    x0 = SCREEN_WIDTH - 1;
+    x1 = SCREEN_WIDTH - 1;
     y0 = i * step;
     y1 = i * step + step;
     canvas.drawLine(x0, y0, x1, y1, tft.color565(values[i], values[i], values[i]));
@@ -550,23 +550,39 @@ void renderFrequenciesMatrix()
 
 void renderOscilloscope()
 {
-  audioInfo.normalize(true, 0, SCREEN_HEIGHT); // normalize all values to range provided.
+  audioInfo.normalize(true, -SCREEN_HEIGHT / 2, SCREEN_HEIGHT / 2); // normalize all values to range provided.
   int triggerIndex = audioInfo.getSampleTriggerIndex();
   clearDisplay();
   int stepSize = (SAMPLE_SIZE / 1.5) / SCREEN_WIDTH;
+  float scale = 0;
+  float fadeInOutWidth = SCREEN_WIDTH / 8;
   for (int i = triggerIndex + stepSize, x0 = 1; x0 < SCREEN_WIDTH && i < SAMPLE_SIZE; i += stepSize, x0++)
   {
     int x1 = x0-1;
     int y0 = audioInfo.getSample(i); 
     int y1 = audioInfo.getSample(i - stepSize);
-    canvas.drawLine(x0, y0, x1, y1, tft.color565(255, 255, 255));
+    if (x1 < fadeInOutWidth)
+    {
+      scale = (float)x0 / (fadeInOutWidth);
+      y0 = (float)y0 * scale;
+      scale = (float)x1 / (fadeInOutWidth);
+      y1 = (float)y1 * scale;
+    }
+    else if (x1 > SCREEN_WIDTH - fadeInOutWidth)
+    {
+      scale = (float)(SCREEN_WIDTH - x0) / (fadeInOutWidth);
+      y0 = (float)y0 * scale;
+      scale = (float)(SCREEN_WIDTH - x1) / (fadeInOutWidth);
+      y1 = (float)y1 * scale;
+    }
+    canvas.drawLine(x0, y0 + SCREEN_HEIGHT / 2, x1, y1 + SCREEN_HEIGHT / 2, tft.color565(255, 255, 255));
   }
   tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, canvas.getBuffer());
 }
 
-void renderRadarOscilloscope()
+void renderCircleOscilloscope()
 {
-  audioInfo.normalize(true, 0, SCREEN_HEIGHT/2); // normalize all values to range provided.
+  audioInfo.normalize(true, -SCREEN_HEIGHT / 4, SCREEN_HEIGHT / 4); // normalize all values to range provided.
   int triggerIndex = audioInfo.getSampleTriggerIndex();
   float radius;
   float step = (360.0 / (SAMPLE_SIZE / 2.0)) * PI / 180.0;
@@ -575,12 +591,23 @@ void renderRadarOscilloscope()
   float y0, y1, y_first;
   float cx = SCREEN_WIDTH / 2;
   float cy = SCREEN_HEIGHT / 2;
+  float scale = 0;
+  float fadeInOutWidth = SAMPLE_SIZE / 2 / 8;
   clearDisplay();
   for (float angle = offsetAngle, i = triggerIndex; angle - offsetAngle <= 2 * PI && i < triggerIndex + SAMPLE_SIZE / 2.0; angle += step, i++)
   {
-    radius = audioInfo.getSample(i);
-    x0 = cx + radius * cos(angle);
-    y0 = cy + radius * sin(angle);
+    // TODO: blend with beginning more smoothly
+    if (i < (triggerIndex + fadeInOutWidth))
+    {
+      scale = (float)i / (triggerIndex + fadeInOutWidth);
+      radius = audioInfo.getSample(i) * scale;
+      radius += audioInfo.getSample((triggerIndex + SAMPLE_SIZE / 2.0)-(i-triggerIndex)+1) * (1 - scale);
+    }
+    else {
+      radius = audioInfo.getSample(i);
+    }
+    x0 = cx + (radius + SCREEN_HEIGHT / 4) * cos(angle);
+    y0 = cy + (radius + SCREEN_HEIGHT / 4) * sin(angle);
     if (i > triggerIndex)
     {
       canvas.drawLine(x0, y0, x1, y1, tft.color565(255, 255, 255));

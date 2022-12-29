@@ -136,8 +136,10 @@ protected:
   float _mid = 1;
   float _high = 1;
   bool _lowMidHighEq = false;
-  uint16_t _frequencyOffsets[BAND_SIZE];
+  float _frequencyOffsets[BAND_SIZE];
   void calculateFrequencyOffsets();
+  uint16_t _bassMidTrebleWidths[3];
+  uint16_t * getBassMidTrebleWidths(); 
 
   float _bandAvg;
   float _peakAvg;
@@ -246,23 +248,32 @@ float getPoint(float n1, float n2, float percent)
   return n1 + (diff * percent);
 }
 
+uint16_t * AudioAnalysis::getBassMidTrebleWidths() {
+  _bassMidTrebleWidths[0] = max(1, (_bandSize / 8)); // 40Hz < bass < 400Hz
+  _bassMidTrebleWidths[1] = max(1, ((_bandSize - _bassMidTrebleWidths[0]) / 2)); // 400Hz < mid < 1800Hz
+  _bassMidTrebleWidths[2] = max(1, (_bandSize - _bassMidTrebleWidths[0] - _bassMidTrebleWidths[1])); // 1800Hz < treble < 17000Hz
+  return _bassMidTrebleWidths;
+};
+
 void AudioAnalysis::setEqualizerLevels(float low, float mid, float high)
 {
   _low = low;
   _mid = mid;
   _high = high;
   _lowMidHighEq = true;
+  uint16_t * widths = getBassMidTrebleWidths();
   float xa, ya, xb, yb, x, y;
   // low curve
   float x1 = 0;
-  float lowSize = _bandSize / 4;
+  float lowSize = widths[0];
   float y1 = low;
   float x2 = lowSize / 2;
   float y2 = low;
   float x3 = lowSize;
-  float y3 = (low + mid)/2.0;
+  float y3 = (low + mid) / 2.0;
   for (int i = x1; i < lowSize; i++)
   {
+    // TODO: fix the curve to use x position
     float p = (float)i / (float)lowSize;
     //xa = getPoint(x1, x2, p);
     ya = getPoint(y1, y2, p);
@@ -277,9 +288,9 @@ void AudioAnalysis::setEqualizerLevels(float low, float mid, float high)
 
   // mid curve
   x1 = lowSize;
-  float midSize = (_bandSize-lowSize) / 2;
+  float midSize = widths[1];
   y1 = y3;
-  x2 = x1 + midSize / 2;
+  x2 = x1 + widths[0];
   y2 = mid;
   x3 = x1 + midSize;
   y3 = (mid + high) / 2.0;
@@ -299,7 +310,7 @@ void AudioAnalysis::setEqualizerLevels(float low, float mid, float high)
 
   // high curve
   x1 = lowSize + midSize;
-  float highSize = midSize;
+  float highSize = widths[2];
   y1 = y3;
   x2 = x1 + highSize / 2;
   y2 = high;
@@ -337,18 +348,18 @@ float *AudioAnalysis::getEqualizerLevels()
 void AudioAnalysis::calculateFrequencyOffsets()
 {
   // lookup table 64 buckets
-  static const float lut[] = { 0.0007906322151, 0.0008488079027, 0.0009112642287, 0.0009783161678, 0.001050301871, 0.00112758437, 0.00121055341, 0.001299627414, 0.001395255592, 0.001497920209, 0.001608139014, 0.001726467854, 0.001853503476, 0.001989886533, 0.002136304824, 0.002293496752, 0.002462255054, 0.002643430799, 0.002837937678, 0.003046756611, 0.003270940698, 0.003511620524, 0.003770009867, 0.004047411815, 0.004345225338, 0.004664952345, 0.005008205257, 0.005376715139, 0.00577234043, 0.006197076315, 0.006653064787, 0.00714260545, 0.007668167115, 0.008232400251, 0.008838150353, 0.009488472291, 0.01018664571, 0.01093619159, 0.01174088998, 0.01260479905, 0.01353227562, 0.01452799705, 0.01559698488, 0.01674463015, 0.01797672056, 0.0192994697, 0.02071954834, 0.0222441181, 0.02388086758, 0.02563805109, 0.02752453032, 0.029549819, 0.03172413091, 0.03405843135, 0.03656449248, 0.03925495266, 0.0421433802, 0.04524434178, 0.04857347591, 0.05214757181, 0.05598465407, 0.06010407355, 0.06452660496, 0.06927455165 };
-  float maxValue = ((float)_sampleSize / 2.0) * 0.7531973462;
+  static const float lut[] = { 0.0005270811564, 0.0005704095055, 0.0006172996322, 0.00066804433, 0.0007229604612, 0.0007823909358, 0.0008467068523, 0.0009163098151, 0.0009916344422, 0.001073151079, 0.001161368736, 0.001256838266, 0.001360155803, 0.001471966489, 0.001592968497, 0.001723917392, 0.001865630852, 0.002018993772, 0.002184963786, 0.002364577253, 0.002558955723, 0.002769312943, 0.002996962437, 0.003243325702, 0.003509941093, 0.003798473421, 0.004110724353, 0.004448643662, 0.004814341398, 0.005210101069, 0.005638393895, 0.006101894243, 0.006603496322, 0.007146332261, 0.00773379166, 0.00836954276, 0.009057555349, 0.009802125546, 0.01060790263, 0.01147991808, 0.01242361696, 0.01344489197, 0.0145501202, 0.01574620296, 0.0170406089, 0.01844142061, 0.01995738509, 0.0215979684, 0.02337341475, 0.02529481046, 0.02737415321, 0.02962442691, 0.03205968284, 0.03469512734, 0.03754721676, 0.04063376026, 0.04397403098, 0.04758888638, 0.05150089852, 0.05573449497, 0.06031611135, 0.06527435639, 0.07064019061, 0.07644711959};
+  float maxValue = ((float)_sampleSize / 2.0) * 0.8020322074;
   uint16_t total = 0;
-  Serial.print("frequencyOffsets Size: ");
-  Serial.println(_bandSize);
-  Serial.print("sample goal: ");
-  Serial.println(maxValue);
+  // Serial.print("frequencyOffsets Size: ");
+  // Serial.println(_bandSize);
+  // Serial.print("sample goal: ");
+  // Serial.println(maxValue);
   int stepSize = 64.0 / (float)_bandSize;
   int offset = 0;
   float v = 0;
-  Serial.print("Step Size: ");
-  Serial.println(stepSize);
+  // Serial.print("Step Size: ");
+  // Serial.println(stepSize);
   for (int i = 0; i < BAND_SIZE; i++)
   {
       _frequencyOffsets[i] = 0;
@@ -362,16 +373,16 @@ void AudioAnalysis::calculateFrequencyOffsets()
       v += lut[(offset + j)];
     }
     v = v * maxValue;
-    if(v < 1) {
-      v = 1;
-    }
+    // if(v < 1) {
+    //   v = 1;
+    // }
     _frequencyOffsets[i] = v;
     total += v;
-    Serial.printf("index: %2d = ", (int)i);
-    Serial.println((int)v);
+    // Serial.printf("index: %2d = ", (int)i);
+    // Serial.println((int)v);
   }
-  Serial.print("SUM: ");
-  Serial.println(total);
+  // Serial.print("SUM: ");
+  // Serial.println(total);
 }
 
 void AudioAnalysis::computeFrequencies(uint8_t bandSize)
@@ -422,7 +433,7 @@ void AudioAnalysis::computeFrequencies(uint8_t bandSize)
     {
       _peaks[i] -= _peakFallRate[i]; // fall off rate
     }
-    for (int j = 0; j < _frequencyOffsets[i]; j++)
+    for (int j = 0; j < ceil(_frequencyOffsets[i]); j++)
     {
       // scale down factor to prevent overflow
       int rv = (_real[offset + j] / (0xFFFF * 0xFF));
@@ -431,11 +442,15 @@ void AudioAnalysis::computeFrequencies(uint8_t bandSize)
       rv = sqrt(rv * rv + iv * iv);
       // add eq offsets
       rv = rv * _bandEq[i];
+      if (_frequencyOffsets[i] < 1)
+      {
+        rv *= _frequencyOffsets[i]; // band scale down factor
+      }
       // combine band amplitudes for current band segment
       _bands[i] += rv;
       _vu += rv;
     }
-    offset += _frequencyOffsets[i];
+    offset += ceil(_frequencyOffsets[i]);
 
     // remove noise
     if (_bands[i] < _noiseFloor)
@@ -628,6 +643,9 @@ void AudioAnalysis::setBandSize(uint8_t bandSize)
       }
     }
   }
+  else {
+    _bandSize = BAND_SIZE;
+  }
   lastBandSize = _bandSize;
 }
 
@@ -733,8 +751,9 @@ int AudioAnalysis::getPeakMinIndex()
 
 float AudioAnalysis::getBass()
 {
+  uint16_t *widths = getBassMidTrebleWidths();
   int start = 0;
-  int range = (float)_bandSize/4.0;
+  int range = widths[0];
   float *bands = getBands();
   float out = bands[start];
   for (int i = start; i < start + range; i++)
@@ -749,8 +768,9 @@ float AudioAnalysis::getBass()
 
 float AudioAnalysis::getMid()
 {
-  int start = (float)_bandSize / 4.0;
-  int range = ((float)(_bandSize - start) / 2.0);
+  uint16_t *widths = getBassMidTrebleWidths();
+  int start = widths[0];
+  int range = widths[1];
   float *bands = getBands();
   float out = bands[start];
   for (int i = start; i < start + range; i++)
@@ -765,9 +785,13 @@ float AudioAnalysis::getMid()
 
 float AudioAnalysis::getTreble()
 {
-  int start = (float)_bandSize / 4.0;
-  int range = ((float)(_bandSize - start) / 2.0);
-  start += range; // offset
+  uint16_t *widths = getBassMidTrebleWidths();
+  int start = widths[0] + widths[1];
+  if (start >= _bandSize)
+  {
+    return getMid();
+  }
+  int range = widths[2];
   float *bands = getBands();
   float out = bands[start];
   for (int i = start; i < start + range; i++)
@@ -782,8 +806,9 @@ float AudioAnalysis::getTreble()
 
 float AudioAnalysis::getBassPeak()
 {
+  uint16_t *widths = getBassMidTrebleWidths();
   int start = 0;
-  int range = (float)_bandSize / 4.0;
+  int range = widths[0];
   float *bands = getPeaks();
   float out = bands[start];
   for (int i = start; i < start + range; i++)
@@ -798,8 +823,9 @@ float AudioAnalysis::getBassPeak()
 
 float AudioAnalysis::getMidPeak()
 {
-  int start = (float)_bandSize / 4.0;
-  int range = ((float)(_bandSize - start) / 2.0);
+  uint16_t *widths = getBassMidTrebleWidths();
+  int start = widths[0];
+  int range = widths[1];
   float *bands = getPeaks();
   float out = bands[start];
   for (int i = start; i < start + range; i++)
@@ -814,9 +840,12 @@ float AudioAnalysis::getMidPeak()
 
 float AudioAnalysis::getTreblePeak()
 {
-  int start = (float)_bandSize / 4.0;
-  int range = ((float)(_bandSize - start) / 2.0);
-  start += range; // offset
+  uint16_t *widths = getBassMidTrebleWidths();
+  int start = widths[0] + widths[1];
+  if(start >= _bandSize) {
+    return getMidPeak();
+  }
+  int range = widths[2];
   float *bands = getPeaks();
   float out = bands[start];
   for (int i = start; i < start + range; i++)
@@ -867,6 +896,10 @@ float AudioAnalysis::getVolumeUnitPeakMax()
 
 float AudioAnalysis::getSample(uint16_t index)
 {
+  if(index < 0 || index >= _sampleSize)
+  {
+    return _normalMin;
+  }
   float value = (float)_samples[index];
   if (_isNormalize)
   {
