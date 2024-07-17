@@ -78,11 +78,11 @@ void setup()
   audioInfo.setNoiseFloor(10);                     // sets the noise floor
   audioInfo.normalize(true, 0, SCREEN_HEIGHT - 1); // normalize all values to range provided.
 
-  audioInfo.autoLevel(AudioAnalysis::EXPONENTIAL_FALLOFF, .001, 20, -1); // set auto level falloff rate
-  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 1);   // set the band peak fall off rate
+  audioInfo.autoLevel(AudioAnalysis::EXPONENTIAL_FALLOFF, .0001, 20, -1); // set auto level falloff rate
+  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, .1);   // set the band peak fall off rate
   audioInfo.vuPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, .01);       // set the volume unit peak fall off rate
 
-  audioInfo.setEqualizerLevels(.25, 1, 1); // set the equlizer offsets
+  audioInfo.setEqualizerLevels(1, 1, 1); // set the equlizer offsets
 
   // TFT setup
   tft.init();

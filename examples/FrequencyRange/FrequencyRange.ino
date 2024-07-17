@@ -16,8 +16,8 @@
 /* Required defines for audio analysis */
 #define BAND_SIZE 8 // powers of 2 up to 64, defaults to 8
 
-#include <AudioAnalysis.h>
-AudioAnalysis audioInfo;
+#include <AudioFrequencyAnalysis.h>
+AudioFrequencyAnalysis audioInfo;
 
 // ESP32 S2 Mini
 // #define MIC_BCK_PIN 4             // Clock pin from the mic.
@@ -35,39 +35,37 @@ AudioInI2S mic(MIC_BCK_PIN, MIC_WS_PIN, MIC_DATA_PIN, MIC_CHANNEL_SELECT_PIN); /
 
 int32_t samples[SAMPLE_SIZE]; // I2S sample data is stored here
 
+FrequencyRange vuMeter(0, 20000);
+FrequencyRange bass(0, 249);
+FrequencyRange mid(250, 1499);
+FrequencyRange high(1500, 16000);
+
 void setup()
 {
   Serial.begin(115200);
   mic.begin(SAMPLE_SIZE, SAMPLE_RATE); // Starts the I2S DMA port.
 
   // audio analysis setup
-  audioInfo.setNoiseFloor(10);       // sets the noise floor
+  audioInfo.setNoiseFloor(5);       // sets the noise floor
   audioInfo.normalize(true, 0, 255); // normalize all values to range provided.
-
-  // audioInfo.autoLevel(AudioAnalysis::ACCELERATE_FALLOFF, 1); // uncomment this line to set auto level falloff rate
-  audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 0.05); // set the band peak fall off rate
-  audioInfo.vuPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 0.05);    // set the volume unit peak fall off rate
+  vuMeter._inIsolation = true;
+  audioInfo.addFrequencyRange(&vuMeter);
+  audioInfo.addFrequencyRange(&bass);
+  audioInfo.addFrequencyRange(&mid);
+  audioInfo.addFrequencyRange(&high);
 }
 
 void loop()
 {
   mic.read(samples); // Stores the current I2S port buffer into samples.
-  audioInfo.computeFFT(samples, SAMPLE_SIZE, SAMPLE_RATE);
-  audioInfo.computeFrequencies(BAND_SIZE);
-
-  float *bands = audioInfo.getBands();
-  float *peaks = audioInfo.getPeaks();
-  float vuMeter = audioInfo.getVolumeUnit();
-  float vuMeterPeak = audioInfo.getVolumeUnitPeak();
-
-  // Send data to serial plotter
-  for (int i = 0; i < BAND_SIZE; i++)
-  {
-    Serial.printf("%dHz:%.1f,", audioInfo.getBandName(i), peaks[i]);
-  }
+  audioInfo.loop(samples, SAMPLE_SIZE, SAMPLE_RATE);
 
   // also send the vu meter data
-  Serial.printf("vuValue:%.1f,vuPeak:%.2f", vuMeter, vuMeterPeak);
+  Serial.printf("maxFrequency:%d,", vuMeter.getMaxFrequency());
+  Serial.printf("vu:%.2f,vuPeak:%.2f,", vuMeter.getValue(0,255), vuMeter.getPeak(0,255));
+  Serial.printf("bass:%.2f,bassPeak:%.2f,", bass.getValue(0,255), bass.getPeak(0,255));
+  Serial.printf("mid:%.2f,midPeak:%.2f,", mid.getValue(0,255), mid.getPeak(0,255));
+  Serial.printf("high:%.2f,highPeak:%.2f", high.getValue(0,255), high.getPeak(0,255));
 
   Serial.println();
 }

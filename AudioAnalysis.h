@@ -11,7 +11,9 @@
 // #define FFT_SQRT_APPROXIMATION
 
 #include <arduinoFFT.h>
-
+#ifndef SAMPLE_RATE
+#define SAMPLE_RATE 44100
+#endif
 #ifndef SAMPLE_SIZE
 #define SAMPLE_SIZE 1024
 #endif
@@ -31,13 +33,15 @@ public:
   };
 
   AudioAnalysis();
+  AudioAnalysis(int32_t *samples, int sampleSize, int sampleRate, int bandSize);
+
   /* FFT Functions */
   void computeFFT(int32_t *samples, int sampleSize, int sampleRate); // calculates FFT on sample data
   float *getReal();                                                  // gets the Real values after FFT calculation
   float *getImaginary();                                             // gets the imaginary values after FFT calculation
 
   /* Band Frequency Functions */
-  void setNoiseFloor(float noiseFloor);                                // threshold before sounds are registered
+  void setNoiseFloor(float noiseFloor);                         // threshold before sounds are registered
   void computeFrequencies(uint8_t bandSize = -1);               // converts FFT data into frequency bands
   void normalize(bool normalize = true, float min = 0, float max = 1); // normalize all values and constrain to min/max.
 
@@ -51,24 +55,27 @@ public:
   bool
   isNormalize();      // is normalize enabled
   bool isAutoLevel(); // is auto level enabled
-  bool isClipping();  // is values exceding max
+  bool isClipping();  // is values exceeding max
 
   void bandPeakFalloff(falloff_type falloffType = EXPONENTIAL_FALLOFF, float falloffRate = 0.5); // set the falloff type and rate for band peaks.
   void vuPeakFalloff(falloff_type falloffType = EXPONENTIAL_FALLOFF, float falloffRate = 0.5);   // set the falloff type and rate for volume unit peak.
   void samplesFalloff(falloff_type falloffType = EXPONENTIAL_FALLOFF, float falloffRate = 0.5);  // set the falloff type and rate for sample values.
 
-  float getBass();       // gets the average bass range value
-  float getMid();        // gets the average mid range value
-  float getTreble();     // gets the average tweet range value
-  float getBassPeak();   // gets the average bass peak range value
-  float getMidPeak();    // gets the average mid peak range value
-  float getTreblePeak(); // gets the average tweet peak range value
+  float getBass();       // gets the current bass range value
+  float getMid();        // gets the current mid range value
+  float getTreble();     // gets the current tweet range value
+  float getBassPeak();   // gets the peak bass range value
+  float getMidPeak();    // gets the peak mid range value
+  float getTreblePeak(); // gets the peak tweet range value
 
   float *getBands(); // gets the last bands calculated from computeFrequencies()
   float *getPeaks(); // gets the last peaks calculated from computeFrequencies()
 
-  void setBandSize(uint8_t bandSize = BAND_SIZE); // gets the current calulated _bandSize;
-  int getBandSize(); // gets the current calulated _bandSize;
+  uint16_t *getBandNames(); // gets the band names calculated from calculateFrequencyOffsets()
+  uint16_t getBandName(uint8_t index); // gets the band name at index calculated from calculateFrequencyOffsets()
+
+  void setBandSize(uint8_t bandSize = BAND_SIZE); // gets the current calculated _bandSize;
+  int getBandSize();            // gets the current _bandSize;
   float getBand(uint8_t index); // gets the value at bands index
   float getBandAvg();           // average value across all bands
   float getBandMax();           // max value across all bands
@@ -91,6 +98,16 @@ public:
   uint16_t getSampleTriggerIndex(); // finds the index of the first cross point at zero
   float getSampleMin(); // gets the lowest value in the samples
   float getSampleMax(); // gets the highest value in the samples
+
+  int sampleSize() {
+    return _sampleSize;
+  }
+
+  int bandSize()
+  {
+    return _bandSize;
+  }
+
 protected:
   /* Library Settings */
   bool _isAutoLevel = false;
@@ -112,13 +129,12 @@ protected:
   float _sampleLevelFalloffRate = 0.001;
 
   float calculateFalloff(falloff_type falloffType, float falloffRate, float currentRate);
-  template <class X>
-  X mapAndClip(X x, X in_min, X in_max, X out_min, X out_max);
+  float mapAndClip(float x, float in_min, float in_max, float out_min, float out_max);
 
   /* FFT Variables */
-  int32_t *_samples;
-  int _sampleSize;
-  int _sampleRate;
+  int32_t *_samples = nullptr;
+  int _sampleSize = SAMPLE_SIZE;
+  int _sampleRate = SAMPLE_RATE;
   float _real[SAMPLE_SIZE];
   float _imag[SAMPLE_SIZE];
   float _weighingFactors[SAMPLE_SIZE];
@@ -137,42 +153,70 @@ protected:
   float _high = 1;
   bool _lowMidHighEq = false;
   float _frequencyOffsets[BAND_SIZE];
+  uint16_t _frequencyNames[BAND_SIZE];
   void calculateFrequencyOffsets();
   uint16_t _bassMidTrebleWidths[3];
-  uint16_t * getBassMidTrebleWidths(); 
+  uint16_t * getBassMidTrebleWidths();
 
-  float _bandAvg;
-  float _peakAvg;
-  int8_t _bandMinIndex;
-  int8_t _bandMaxIndex;
-  int8_t _peakMinIndex;
-  int8_t _peakMaxIndex;
-  float _bandMin;
-  float _bandMax; // used for normalization calculation
-  float _peakMin;
-  float _autoLevelPeakMax; // used for normalization calculation
+  float _bandAvg = 0;
+  float _peakAvg = 0;
+  int8_t _bandMinIndex = 0;
+  int8_t _bandMaxIndex = 0;
+  int8_t _peakMinIndex = 0;
+  int8_t _peakMaxIndex = 0;
+  float _bandMin = 0;
+  float _bandMax = 1; // used for normalization calculation
+  float _peakMin = 0;
+  float _autoLevelPeakMax = 1; // used for normalization calculation
   float _autoLevelPeakMaxFalloffRate; // used for auto level calculation
 
   /* Volume Unit Variables */
-  float _vu;
-  float _vuPeak;
+  float _vu = 0;
+  float _vuPeak = 0;
   float _vuPeakFallRate;
-  float _vuMin;
-  float _vuMax; // used for normalization calculation
-  float _vuPeakMin;
-  float _autoLevelVuPeakMax; // used for normalization calculation
+  float _vuMin = 0;
+  float _vuMax = 1; // used for normalization calculation
+  float _vuPeakMin = 0;
+  float _autoLevelVuPeakMax = 1; // used for normalization calculation
   float _autoLevelMaxFalloffRate; // used for auto level calculation
 
   /* Samples Variables */
-  float _samplesMin;
-  float _samplesMax;
+  float _samplesMin = 0;
+  float _samplesMax = 1;
   float _autoLevelSamplesMaxFalloffRate; // used for auto level calculation
 
   ArduinoFFT<float> *_FFT = nullptr;
 };
 
+AudioAnalysis::AudioAnalysis(int32_t *samples, int sampleSize, int sampleRate, int bandSize)
+{
+  AudioAnalysis();
+
+  _samples = samples;
+  _sampleSize = sampleSize;
+  _sampleRate = sampleRate;
+  for (int i = 0; i < SAMPLE_SIZE; i++)
+  {
+    _real[i] = 0;
+    _imag[i] = 0;
+    //_weighingFactors[i] = 0;
+  }
+  for (int i = 0; i < BAND_SIZE; i++)
+  {
+    _bands[i] = 0;
+    _peaks[i] = 0;
+    _peakFallRate[i] = 0;
+    _peaksNorms[i] = 0;
+    _bandsNorms[i] = 0;
+    _bandEq[i] = 1;
+    // _frequencyOffsets[i] = 0; // gets set in setBandSize()
+  }
+  setBandSize(bandSize);
+}
+
 AudioAnalysis::AudioAnalysis()
 {
+  _samples = nullptr;
   // set default eq levels;
   for (int i = 0; i < _bandSize; i++)
   {
@@ -193,15 +237,15 @@ void AudioAnalysis::computeFFT(int32_t *samples, int sampleSize, int sampleRate)
 
   if (_isAutoLevel)
   {
-    if (_samplesMax > _autoMin * 0x4FFF)
-    {
-      _autoLevelSamplesMaxFalloffRate = calculateFalloff(_sampleLevelFalloffType, _sampleLevelFalloffRate, _autoLevelSamplesMaxFalloffRate);
-      _samplesMax -= _autoLevelSamplesMaxFalloffRate;
-    }
-    if (_samplesMax < _autoMin * 0x4FFF)
-    {
-      _samplesMax = _autoMin * 0x4FFF;
-    }
+    // if (_samplesMax > _autoMin * 0x1FFFF)
+    // {
+    _autoLevelSamplesMaxFalloffRate = calculateFalloff(_sampleLevelFalloffType, _sampleLevelFalloffRate, _autoLevelSamplesMaxFalloffRate);
+    _samplesMax -= _autoLevelSamplesMaxFalloffRate;
+    // }
+    // if (_samplesMax < _autoMin * 0x1FFFF)
+    // {
+    //   _samplesMax = _autoMin * 0x1FFFF;
+    // }
   }
 
   // prep samples for analysis
@@ -249,8 +293,8 @@ float getPoint(float n1, float n2, float percent)
 }
 
 uint16_t * AudioAnalysis::getBassMidTrebleWidths() {
-  _bassMidTrebleWidths[0] = max(1, (_bandSize / 8)); // 40Hz < bass < 400Hz
-  _bassMidTrebleWidths[1] = max(1, ((_bandSize - _bassMidTrebleWidths[0]) / 2)); // 400Hz < mid < 1800Hz
+  _bassMidTrebleWidths[0] = max(1, (_bandSize / 10)); // 40Hz < bass < 400Hz
+  _bassMidTrebleWidths[1] = max(1, (int)((float)(_bandSize - _bassMidTrebleWidths[0]) / 3.5)); // 400Hz < mid < 1800Hz
   _bassMidTrebleWidths[2] = max(1, (_bandSize - _bassMidTrebleWidths[0] - _bassMidTrebleWidths[1])); // 1800Hz < treble < 17000Hz
   return _bassMidTrebleWidths;
 };
@@ -345,11 +389,12 @@ float *AudioAnalysis::getEqualizerLevels()
   return _bandEq;
 }
 
+// this look Up Table is used to normalize the buckets against each other. Visually makes the higher frequencies appear to be more equal to the lower frequencies. 
+float lut[] PROGMEM = {0.0006637301302, 0.0006793553648, 0.0006966758032, 0.0007158753602, 0.0007371579043, 0.0007607494216, 0.0007869004159, 0.0008158885684, 0.0008480216863, 0.0008836409716, 0.0009231246432, 0.0009668919541, 0.001015407642, 0.001069186866, 0.001128800673, 0.001194882066, 0.001268132722, 0.001349330446, 0.001439337425, 0.001539109388, 0.001649705751, 0.00177230087, 0.001908196507, 0.002058835652, 0.002225817851, 0.002410916183, 0.002616096095, 0.002843536264, 0.003095651737, 0.003375119574, 0.00368490727, 0.004028304269, 0.004408956893, 0.004830907057, 0.005298635188, 0.005817107803, 0.006391830243, 0.00702890513, 0.007735097169, 0.008517904978, 0.009385640709, 0.01034751831, 0.01141375137, 0.01259566156, 0.01390579885, 0.01535807478, 0.01696791017, 0.01875239887, 0.02073048926, 0.02292318547, 0.02535377038, 0.02804805287, 0.03103464187, 0.03434525011, 0.03801503091, 0.04208295139, 0.04659220631, 0.05159067664, 0.05713143806, 0.06327332449, 0.07008155284, 0.07762841548, 0.08599404787, 0.09526727952};
 void AudioAnalysis::calculateFrequencyOffsets()
 {
   // lookup table 64 buckets
-  static const float lut[] = { 0.0005270811564, 0.0005704095055, 0.0006172996322, 0.00066804433, 0.0007229604612, 0.0007823909358, 0.0008467068523, 0.0009163098151, 0.0009916344422, 0.001073151079, 0.001161368736, 0.001256838266, 0.001360155803, 0.001471966489, 0.001592968497, 0.001723917392, 0.001865630852, 0.002018993772, 0.002184963786, 0.002364577253, 0.002558955723, 0.002769312943, 0.002996962437, 0.003243325702, 0.003509941093, 0.003798473421, 0.004110724353, 0.004448643662, 0.004814341398, 0.005210101069, 0.005638393895, 0.006101894243, 0.006603496322, 0.007146332261, 0.00773379166, 0.00836954276, 0.009057555349, 0.009802125546, 0.01060790263, 0.01147991808, 0.01242361696, 0.01344489197, 0.0145501202, 0.01574620296, 0.0170406089, 0.01844142061, 0.01995738509, 0.0215979684, 0.02337341475, 0.02529481046, 0.02737415321, 0.02962442691, 0.03205968284, 0.03469512734, 0.03754721676, 0.04063376026, 0.04397403098, 0.04758888638, 0.05150089852, 0.05573449497, 0.06031611135, 0.06527435639, 0.07064019061, 0.07644711959};
-  float maxValue = ((float)_sampleSize / 2.0) * 0.8020322074;
+  float maxValue = ((float)_sampleSize / 2.0) * 0.7516249323;
   uint16_t total = 0;
   // Serial.print("frequencyOffsets Size: ");
   // Serial.println(_bandSize);
@@ -362,7 +407,7 @@ void AudioAnalysis::calculateFrequencyOffsets()
   // Serial.println(stepSize);
   for (int i = 0; i < BAND_SIZE; i++)
   {
-      _frequencyOffsets[i] = 0;
+    _frequencyOffsets[i] = 0;
   }
   for (int i = 0; i * stepSize < 64; i++)
   {
@@ -381,6 +426,15 @@ void AudioAnalysis::calculateFrequencyOffsets()
     // Serial.printf("index: %2d = ", (int)i);
     // Serial.println((int)v);
   }
+  
+  offset = 0;
+  _frequencyNames[0] = 20;
+  for (int i = 1; i < _bandSize; i++)
+  {
+    offset += ceil(_frequencyOffsets[i-1]);
+    _frequencyNames[i] = offset * _sampleRate / _sampleSize;
+  }
+  
   // Serial.print("SUM: ");
   // Serial.println(total);
 }
@@ -388,6 +442,10 @@ void AudioAnalysis::calculateFrequencyOffsets()
 void AudioAnalysis::computeFrequencies(uint8_t bandSize)
 {
   setBandSize(bandSize);
+  if (!_samples)
+  {
+    return;
+  }
   _isClipping = false;
   // for normalize falloff rates
   if (_isAutoLevel)
@@ -436,16 +494,17 @@ void AudioAnalysis::computeFrequencies(uint8_t bandSize)
     for (int j = 0; j < ceil(_frequencyOffsets[i]); j++)
     {
       // scale down factor to prevent overflow
-      int rv = (_real[offset + j] / (0xFFFF * 0xFF));
-      int iv = (_imag[offset + j] / (0xFFFF * 0xFF));
+      float rv = (_real[offset + j] / (float)(0xFFFF * 0xFF));
+      float iv = (_imag[offset + j] / (float)(0xFFFF * 0xFF));
       // some smoothing with imaginary numbers.
       rv = sqrt(rv * rv + iv * iv);
-      // add eq offsets
+      // apply eq scaling
       rv = rv * _bandEq[i];
       if (_frequencyOffsets[i] < 1)
       {
         rv *= _frequencyOffsets[i]; // band scale down factor
       }
+      rv = rv < _noiseFloor ? 0 : rv;
       // combine band amplitudes for current band segment
       _bands[i] += rv;
       _vu += rv;
@@ -535,8 +594,7 @@ void AudioAnalysis::computeFrequencies(uint8_t bandSize)
   }
 }
 
-template <class X>
-X AudioAnalysis::mapAndClip(X x, X in_min, X in_max, X out_min, X out_max)
+float AudioAnalysis::mapAndClip(float x, float in_min, float in_max, float out_min, float out_max)
 {
   if (_isAutoLevel && _autoMax != -1 && x > _autoMax)
   {
@@ -660,6 +718,20 @@ float *AudioAnalysis::getBands()
     return _bandsNorms;
   }
   return _bands;
+}
+
+uint16_t *AudioAnalysis::getBandNames()
+{
+  return _frequencyNames;
+}
+
+uint16_t AudioAnalysis::getBandName(uint8_t index)
+{
+  if (index >= _bandSize || index < 0)
+  {
+    return 0;
+  }
+  return _frequencyNames[index];
 }
 
 float AudioAnalysis::getBand(uint8_t index)
@@ -896,30 +968,41 @@ float AudioAnalysis::getVolumeUnitPeakMax()
 
 float AudioAnalysis::getSample(uint16_t index)
 {
-  if(index < 0 || index >= _sampleSize)
+  float value = 0;
+  if (_samples)
   {
-    return _normalMin;
+    value = (float)_samples[index];
+    if (index < 0 || index >= _sampleSize)
+    {
+      value = 0; // make zero
+    }
   }
-  float value = (float)_samples[index];
+
   if (_isNormalize)
   {
-    return mapAndClip(value, -_samplesMax, _samplesMax, _normalMin, _normalMax);
+    float _tempSamplesMax = _samplesMax <= _autoMin * (float)0xFFFF ? _autoMin * 0xFFFF : _samplesMax;
+    return mapAndClip(value, -_tempSamplesMax, _tempSamplesMax, _normalMin, _normalMax);
   }
   return value;
 }
 
 uint16_t AudioAnalysis::getSampleTriggerIndex()
 {
-#define ZERO_POINT 0
-  for (int i = 0; i < _sampleSize - 1; i++)
+  if (!_samples)
+  {
+    return 0;
+  }
+#define ZERO_RANGE 0
+  for (int i = 0; i < (_sampleSize/2 - 1); i++)
   {
     float a = _samples[i];
     float b = _samples[i + 1];
-    if (a >= ZERO_POINT && b < ZERO_POINT)
+    if (a >= ZERO_RANGE && b < -ZERO_RANGE)
     {
       return i;
     }
   }
+  return 0;
 }
 
 float AudioAnalysis::getSampleMin()
@@ -930,6 +1013,7 @@ float AudioAnalysis::getSampleMin()
   }
   return _samplesMin;
 }
+
 float AudioAnalysis::getSampleMax()
 {
   if (_isNormalize)

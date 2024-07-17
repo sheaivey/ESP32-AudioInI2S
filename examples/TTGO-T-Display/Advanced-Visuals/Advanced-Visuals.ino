@@ -38,7 +38,7 @@
 
 #define SAMPLE_SIZE 1024 // Buffer size of read samples 23.219ms @ 44100 sample rate
 #define SAMPLE_RATE 44100 // Audio Sample Rate
-#define FRAME_RATE 43     // frame every samples 23.219ms
+#define FRAME_RATE 120    // every frame 8ms
 
 /* Required defines for audio analysis */
 #define BAND_SIZE 64 // powers of 2 up to 64, defaults to 8
@@ -92,10 +92,10 @@ void setup()
   pinMode(BUTTON_PIN2, INPUT);
 
   // audio analysis setup
-  audioInfo.setNoiseFloor(1);                     // sets the noise floor
+  audioInfo.setNoiseFloor(5);                     // sets the noise floor
   audioInfo.normalize(true, 0, SCREEN_HEIGHT - 1); // normalize all values to range provided.
 
-  audioInfo.autoLevel(AudioAnalysis::EXPONENTIAL_FALLOFF, .001, 10, -1); // set auto level falloff rate
+  audioInfo.autoLevel(AudioAnalysis::EXPONENTIAL_FALLOFF, .001, 20, -1); // set auto level falloff rate
   audioInfo.bandPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, 1);   // set the band peak fall off rate
   audioInfo.vuPeakFalloff(AudioAnalysis::EXPONENTIAL_FALLOFF, .01);       // set the volume unit peak fall off rate
 
@@ -135,7 +135,7 @@ void loop()
     t = millis() - t;
     if(t < 250) { // short press
       visualMode++;
-      if (visualMode > 8)
+      if (visualMode > 10)
       {
         visualMode = 0;
       }
@@ -144,7 +144,7 @@ void loop()
       visualMode--;
       if (visualMode < 0)
       {
-        visualMode = 8;
+        visualMode = 10;
       }
     }
   }
@@ -173,28 +173,34 @@ void loop()
   /* RENDER MODES */
   switch(visualMode) {
     case 1:
-      renderOscilloscope(); // render raw samples
+      renderAppleFrequencies(); // renders all the bands similar to Apple music visualization bars
       break;
     case 2:
-      renderCircleOscilloscope();
+      renderOscilloscope(); // render raw samples
       break;
     case 3:
-      renderRadarFrequencies();
+      renderCircleOscilloscope();
       break;
     case 4:
-      renderBassMidTrebleLines();
+      renderRadarFrequencies();
       break;
     case 5:
-      renderTriangles();
+      renderBassMidTrebleLines();
       break;
     case 6:
-      renderFrequenciesHeatmap();
+      renderEnergyLines();
       break;
     case 7:
-      renderFrequenciesMatrix();
+      renderTriangles();
       break;
     case 8:
-      renderAppleFrequencies(); // renders all the bands similar to Apple music visualization bars
+      renderFrequenciesHeatmap();
+      break;
+    case 9:
+      renderHeightHistory();
+      break;
+    case 10:
+      renderFrequenciesMatrix();
       break;
     case 0:
     default:
@@ -234,9 +240,9 @@ void renderFrequencies()
   int HALF_SCREEN = (float)SCREEN_HEIGHT / 2.0;
   for (int i = 0; i < audioInfo.getBandSize(); i++)
   {
-    canvas.fillRect(offset, (SCREEN_HEIGHT - 1) - bands[i], BAND_WIDTH - 1, SCREEN_HEIGHT + 2, 0xFFFFFF);
-    canvas.drawLine(offset, (SCREEN_HEIGHT - 1) - peaks[i], offset + BAND_WIDTH - 2, (SCREEN_HEIGHT - 1) - peaks[i], 0xFFFFFF);
-    offset += BAND_WIDTH;
+      canvas.fillRect(offset, (SCREEN_HEIGHT - 1) - bands[i], BAND_WIDTH - 1, SCREEN_HEIGHT + 2, getValueColor(bands[i], 0, SCREEN_HEIGHT - 1));
+      canvas.drawLine(offset, (SCREEN_HEIGHT - 1) - peaks[i], offset + BAND_WIDTH - 2, (SCREEN_HEIGHT - 1) - peaks[i], 0xFFFFFF);
+      offset += BAND_WIDTH;
   }
   offset = 0;
   for (int i = 0; i < audioInfo.getBandSize(); i++)
@@ -329,27 +335,187 @@ void renderTriangles()
 
 void renderBassMidTrebleLines()
 {
-  audioInfo.normalize(true, 0, SCREEN_HEIGHT / 4); // normalize all values to range provided.
-  float raw[3] = {audioInfo.getBass(), audioInfo.getMid(), audioInfo.getTreble()};
-  float peak[3] = {audioInfo.getBassPeak(), audioInfo.getMidPeak(), audioInfo.getTreblePeak()};
+  audioInfo.normalize(true, 0, 1); // normalize all values to range provided.
+  float values[3] = {audioInfo.getBass(), audioInfo.getMid(), audioInfo.getTreble()};
   int x0, x1, y0, y1;
-  int wStep = SCREEN_WIDTH / 2;
+  float wStep = SCREEN_WIDTH / 2;
   clearDisplay();
-  for (int i = 0; i < 3 - 1; i++)
+  for (int i = 0; i < 3-1; i++)
   {
-    x0 = i * wStep;
-    y0 = peak[i];
-    x1 = (i + 1) * wStep;
-    y1 = peak[i + 1];
+    x0 = (float)i * wStep;
+    y0 = values[i] * (SCREEN_HEIGHT / 4.0);
+    x1 = (float)(i + 1.0) * wStep;
+    y1 = values[i + 1] * (SCREEN_HEIGHT / 4.0);
     canvas.drawLine(x0, SCREEN_HEIGHT / 2 + y0, x1, SCREEN_HEIGHT / 2 + y1, tft.color565(255, 255, 255));
     canvas.drawLine(x0, SCREEN_HEIGHT / 2 - y0, x1, SCREEN_HEIGHT / 2 - y1, tft.color565(255, 255, 255));
+    canvas.drawLine(x0, SCREEN_HEIGHT / 2 + y0+1, x1, SCREEN_HEIGHT / 2 + y1+1, tft.color565(255, 255, 255));
+    canvas.drawLine(x0, SCREEN_HEIGHT / 2 - y0-1, x1, SCREEN_HEIGHT / 2 - y1-1, tft.color565(255, 255, 255));
 
-    y0 = peak[i] * 2 + SCREEN_HEIGHT / 8;
-    y1 = peak[i + 1] * 2 + SCREEN_HEIGHT / 8;
-    canvas.drawLine(x0, SCREEN_HEIGHT / 2 + y0, x1, SCREEN_HEIGHT / 2 + y1, tft.color565(255, 255, 255));
-    canvas.drawLine(x0, SCREEN_HEIGHT / 2 - y0, x1, SCREEN_HEIGHT / 2 - y1, tft.color565(255, 255, 255));
+    for(int j = 2; j < 10; j += 1) {
+      y0 = values[i] * (SCREEN_HEIGHT / 4.0) * (j) + 10;
+      y1 = values[i + 1] * (SCREEN_HEIGHT / 4.0) * (j) + 10;
+      canvas.drawLine(x0, SCREEN_HEIGHT / 2 + y0, x1, SCREEN_HEIGHT / 2 + y1, tft.color565(values[0] * 255, values[1] * 255, values[2] * 255));
+      canvas.drawLine(x0, SCREEN_HEIGHT / 2 - y0, x1, SCREEN_HEIGHT / 2 - y1, tft.color565(values[0] * 255, values[1] * 255, values[2] * 255));
+    }
   }
 
+  tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, canvas.getBuffer());
+}
+
+void renderFrequencyLines()
+{
+  audioInfo.normalize(true, 0, 1); // normalize all values to range provided.
+  float *values = audioInfo.getPeaks();
+  float lowMidHigh[3] = {audioInfo.getBass(), audioInfo.getMid(), audioInfo.getTreble()};
+  int x0, x1, y0, y1;
+  float wStep = (float)SCREEN_WIDTH / ((float)audioInfo.getBandSize() - 1.0);
+  clearDisplay();
+  for (int i = 0; i < audioInfo.getBandSize() - 1; i++)
+  {
+    x0 = (float)i * wStep;
+    y0 = values[i] * (SCREEN_HEIGHT / 4.0);
+    x1 = (float)(i + 1.0) * wStep;
+    y1 = values[i + 1] * (SCREEN_HEIGHT / 4.0);
+    canvas.drawLine(x0, SCREEN_HEIGHT / 2 + y0, x1, SCREEN_HEIGHT / 2 + y1, tft.color565(255, 255, 255));
+    canvas.drawLine(x0, SCREEN_HEIGHT / 2 - y0, x1, SCREEN_HEIGHT / 2 - y1, tft.color565(255, 255, 255));
+    canvas.drawLine(x0, SCREEN_HEIGHT / 2 + y0 + 1, x1, SCREEN_HEIGHT / 2 + y1 + 1, tft.color565(255, 255, 255));
+    canvas.drawLine(x0, SCREEN_HEIGHT / 2 - y0 - 1, x1, SCREEN_HEIGHT / 2 - y1 - 1, tft.color565(255, 255, 255));
+
+    for (int j = 2; j < 5; j += 1)
+    {
+      y0 = values[i] * (SCREEN_HEIGHT / 4.0) * (j) + 20;
+      y1 = values[i + 1] * (SCREEN_HEIGHT / 4.0) * (j) + 20;
+      canvas.drawLine(x0, SCREEN_HEIGHT / 2 + y0, x1, SCREEN_HEIGHT / 2 + y1, tft.color565(lowMidHigh[0] * 255, lowMidHigh[1] * 255, lowMidHigh[2] * 255));
+      canvas.drawLine(x0, SCREEN_HEIGHT / 2 - y0, x1, SCREEN_HEIGHT / 2 - y1, tft.color565(lowMidHigh[0] * 255, lowMidHigh[1] * 255, lowMidHigh[2] * 255));
+    }
+  }
+
+  tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, canvas.getBuffer());
+}
+
+void renderEnergyLines()
+{
+  audioInfo.normalize(true, 0, 1.0f); // normalize all values to range provided.
+  float raw[3] = {audioInfo.getBass(), audioInfo.getMid(), audioInfo.getTreble()};
+  float peak[3] = {audioInfo.getBassPeak(), audioInfo.getMidPeak(), audioInfo.getTreblePeak()};
+  float vuPeak = audioInfo.getVolumeUnit();
+  uint16_t c565 = tft.color565(peak[0] * 255, peak[1] * 255, peak[2] * 255);
+  int x0, x1, y0, y1, cx, cy;
+  float value;
+  int wStep = SCREEN_WIDTH / 4;
+  clearDisplay();
+  // //for(int j = 2; j >= 0; j--) {
+  //   for (int i = 0; i < 10; i++)
+  //   {
+  //     // if(j == 0) {
+  //     //   c565 = tft.color565(peak[0] * 255, 0, 0);
+  //     // }
+  //     // else if (j == 1)
+  //     // {
+  //     //   c565 = tft.color565(0, peak[1] * 255, 0);
+  //     // }
+  //     // else
+  //     // {
+  //     //   c565 = tft.color565(0, 0, peak[2] * 255);
+  //     // }
+
+  //     //value = peak[j];
+  //     value = vuPeak;
+  //     cx = (SCREEN_WIDTH / 2) + ((i) * (wStep * (value)));
+  //     cy = 50.0 * value;
+  //     canvas.drawLine(cx, SCREEN_HEIGHT / 2 - cy, cx, SCREEN_HEIGHT / 2 + cy, c565);
+  //     cx = (SCREEN_WIDTH / 2) - ((i) * (wStep * (value)));
+  //     canvas.drawLine(cx, SCREEN_HEIGHT / 2 - cy, cx, SCREEN_HEIGHT / 2 + cy, c565);
+  //   }
+  // //}
+  
+
+  for (int i = 0; i < 10; i++)
+  {
+    // rifht side
+    c565 = getValueColor(peak[1] + peak[2], 0, 2);
+    cx = (SCREEN_WIDTH / 2) + (i * (wStep * ((peak[0] + peak[1]) + 0.25f)));
+    cy = 25;
+    // x0 = cx + wStep * 0.5 * (peak[2] + peak[1]);
+    // canvas.drawLine(x0, SCREEN_HEIGHT / 2 - cy, x0, SCREEN_HEIGHT / 2 + cy, c565);
+    // x0 = cx - wStep * 0.5 * (peak[2] + peak[1]);
+    // canvas.drawLine(x0, SCREEN_HEIGHT / 2 - cy, x0, SCREEN_HEIGHT / 2 + cy, c565);
+    canvas.drawLine(cx, SCREEN_HEIGHT / 2 - cy, cx, SCREEN_HEIGHT / 2 + cy, getValueColor(peak[0]+peak[1]+peak[2], 0, 1));
+
+    // left side 
+    cx = (SCREEN_WIDTH / 2) - (i * (wStep * ((peak[0] + peak[1]) + 0.25f)));
+    // x0 = cx + wStep * 0.5 * (peak[2] + peak[1]);
+    // canvas.drawLine(x0, SCREEN_HEIGHT / 2 - cy, x0, SCREEN_HEIGHT / 2 + cy, c565);
+    // x0 = cx - wStep * 0.5 * (peak[2] + peak[1]);
+    // canvas.drawLine(x0, SCREEN_HEIGHT / 2 - cy, x0, SCREEN_HEIGHT / 2 + cy, c565);
+
+    canvas.drawLine(cx, SCREEN_HEIGHT / 2 - cy, cx, SCREEN_HEIGHT / 2 + cy, getValueColor(peak[0]+peak[1]+peak[2], 0, 1));
+  }
+
+  tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, canvas.getBuffer());
+}
+
+void renderHeightHistory()
+{
+  audioInfo.normalize(true, 0, 255); // normalize all values to range provided.
+  float *values = audioInfo.getBands();
+  float vu = audioInfo.getVolumeUnit();
+  float bassMidHigh[3] = {audioInfo.getBass(), audioInfo.getMid(), audioInfo.getTreble()};
+
+  uint16_t *buffer = canvas.getBuffer();
+  uint16_t c565;
+  uint16_t step = 1;
+  // shift value to the left
+  for (int y = 0; y < SCREEN_HEIGHT; y++)
+  {
+    for (int x = step + SCREEN_WIDTH % step; x < SCREEN_WIDTH; x += step)
+    {
+      c565 = buffer[y * SCREEN_WIDTH + x];
+      buffer[(y * SCREEN_WIDTH) + x - 1] = c565;
+    }
+  }
+  float radius;
+  float x0, x1;
+  float y0, y1;
+
+  canvas.drawLine(SCREEN_WIDTH - 1, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT, 0);
+
+  if (audioInfo.getBandSize() == 32)
+  { // vu
+    step = (SCREEN_HEIGHT)/1.5;
+    x0 = SCREEN_WIDTH - 1;
+    x1 = SCREEN_WIDTH - 1;
+    y0 = ((SCREEN_HEIGHT - step) / 2) + ((float)(step / 2.0) * (1.0 - (float)(vu / 255.0)));
+    y1 = ((SCREEN_HEIGHT - step) / 2) + step - ((float)(step / 2.0) * (1.0 - (float)(vu / 255.0)));
+    c565 = getValueColor(vu, 0, 255);
+    canvas.drawLine(x0, y0, x1, y1, c565);
+  }
+  else if (audioInfo.getBandSize() == 64)
+  { // low mid high
+    step = (SCREEN_HEIGHT / 3);
+    for (int i = 0; i < 3; i++)
+    {
+      x0 = SCREEN_WIDTH - 1;
+      x1 = SCREEN_WIDTH - 1;
+      y0 = (3 - 1 - i) * step + ((float)(step / 2.0) * (1.0 - (float)(bassMidHigh[i] / 255.0)));
+      y1 = (3 - 1 - i) * step + step - ((float)(step / 2.0) * (1.0 - (float)(bassMidHigh[i] / 255.0)));
+      c565 = getValueColor(bassMidHigh[i], 0, 255);
+      canvas.drawLine(x0, y0, x1, y1, c565);
+    }
+  }
+  else
+  {
+    step = (SCREEN_HEIGHT / audioInfo.getBandSize());
+    for (int i = 0; i < audioInfo.getBandSize(); i++)
+    {
+      x0 = SCREEN_WIDTH - 1;
+      x1 = SCREEN_WIDTH - 1;
+      y0 = (audioInfo.getBandSize() - 1 - i) * step + ((float)(step / 2.0) * (1.0-(float)(values[i]/255.0)));
+      y1 = (audioInfo.getBandSize() - 1 - i) * step + step - ((float)(step / 2.0) * (1.0-(float)(values[i] / 255.0)));
+      c565 = getValueColor(values[i], 0, 255);
+      canvas.drawLine(x0, y0, x1, y1, c565);
+    }
+  }
   tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, canvas.getBuffer());
 }
 
@@ -459,7 +625,7 @@ void renderRadarFrequencies()
 void renderFrequenciesHeatmap()
 {
   audioInfo.normalize(true, 0, 255); // normalize all values to range provided.
-  float *values = audioInfo.getPeaks();
+  float *values = audioInfo.getBands();
 
   uint16_t *buffer = canvas.getBuffer();
   uint16_t c565;
@@ -477,14 +643,16 @@ void renderFrequenciesHeatmap()
   float x0, x1;
   float y0, y1;
 
+
   canvas.drawLine(SCREEN_WIDTH - 1, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT, 0);
   for (int i = 0; i < audioInfo.getBandSize(); i++)
   {
     x0 = SCREEN_WIDTH - 1;
     x1 = SCREEN_WIDTH - 1;
-    y0 = i * step;
-    y1 = i * step + step;
-    canvas.drawLine(x0, y0, x1, y1, tft.color565(values[i], values[i], values[i]));
+    y0 = (audioInfo.getBandSize() - 1 - i) * step;
+    y1 = (audioInfo.getBandSize() - 1 - i) * step + step;
+    c565 = getValueColor(values[i], 0, 255);
+    canvas.drawLine(x0, y0, x1, y1, c565);
   }
 
   tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, canvas.getBuffer());
@@ -541,7 +709,7 @@ void renderFrequenciesMatrix()
       if(values[i] > 80) {
         x0 = x * stepX;
         y0 = y * stepY;
-        canvas.fillRect(x0, y0, stepX-1, stepY-1, tft.color565(255, 255, 255));
+        canvas.fillRect(x0, y0, stepX - 1, stepY - 1, getValueColor(values[i], 0, 255));
       }
     }
   }
@@ -624,7 +792,6 @@ void renderCircleOscilloscope()
 
   tft.pushImage(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, canvas.getBuffer());
 }
-
 
 /*
   This function just clears the display in fun ways.
@@ -875,4 +1042,77 @@ void clearDisplay() {
       canvas.fillScreen(0x0000);
       break;
   }
+}
+
+template <class X, class M, class N, class O, class Q>
+X map_Generic(X x, M in_min, N in_max, O out_min, Q out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+uint16_t getValueColor(float value, float min, float max) {
+  if (value > max)
+  {
+    value = max;
+  }
+  if (value < min)
+  {
+    value = min;
+  }
+  float valueScaled = map_Generic(value, min, max, 0.0, 1.0);
+  float scale = 0;
+  int16_t r=0, g=0, b=0;
+  switch (clearMode)
+  {
+    case 1: {
+      r = 255;
+      g = (1 - valueScaled) * 255;
+      break;
+    }
+    case 2: {
+      r = (float)sin8(frame / 3.0 + 85.0) * valueScaled;
+      g = (float)sin8(frame / 3.0) * valueScaled;
+      b = (float)sin8(frame / 3.0 + 170.0) * valueScaled;
+      break;
+    }
+    case 3:
+    {
+      r = sin8(255.0 * valueScaled + 85.0);
+      g = sin8(255.0 * valueScaled);
+      b = sin8(255.0 * valueScaled + 170.0);
+      break;
+    }
+    case 4: {
+      if (valueScaled < .5)
+      {
+        // blue
+        scale = (valueScaled) / .5;
+        b = scale * 255.0;
+        g = (valueScaled * scale) * 255.0;
+      }
+      else if (valueScaled < .75)
+      {
+        // green
+        scale = (valueScaled - .5) / .25;
+        b = (valueScaled * (1-scale)) * 255.0;
+        g = (valueScaled * scale) * 255.0;
+        r = (valueScaled * scale) * 255.0;
+      }
+      else if (valueScaled <= 1)
+      {
+        // red
+        scale = (valueScaled - .75) / .125;
+        g = (valueScaled * (1 - scale)) * 255.0;
+        if(g < 0) {
+          g = 0;
+        }
+        r = 255;//(valueScaled * scale) * 255.0;
+      }
+      break;
+    }
+    case 0:
+    default:
+      r = g = b = valueScaled * 255;
+  }
+  return tft.color565(r, g, b);
 }
