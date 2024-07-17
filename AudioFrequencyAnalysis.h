@@ -2,6 +2,7 @@
 #define AudioFrequencyAnalysis_H
 
 #include "Arduino.h"
+#include "RollingAverage.h"
 
 // arduinoFFT V2
 // See the develop branch on GitHub for the latest info and speedups.
@@ -49,19 +50,20 @@ public:
 
   void loop(); // calculates the value for the current sample frame.
 
-  float getValue(); // returns the calculated value
+  float getValue(); // returns the raw value
   float getValue(float min, float max); // returns the calculated value
-  float getPeak(); // returns the peak
-  float getPeak(float min, float max); // returns the peak
+  float getPeak(); // returns the raw peak
+  float getPeak(float min, float max); // returns the calculated peak
   
   uint16_t getMaxFrequency();
   float getMin(); // gets the lowest raw value in the range
   float getMax(); // gets the highest raw value in the range
 
   float _value = 0;
-  float _scaling = 1;
+  float _peak = 0;
   float _min = 0;
   float _max = 1;
+  float _scaling = 1;
   int16_t _maxIndex = -1;
   float _autoFloor = 100;
 
@@ -70,10 +72,12 @@ public:
   falloff_type _maxFalloffType = EXPONENTIAL_FALLOFF;
   float _maxFalloffRate = .000001;
   float _maxFallRate = 0; // -1 use analysis default
-  float _peak = 0;
+  RollingAverage * _maxRollingAverage = nullptr;
+  
   falloff_type _peakFalloffType = EXPONENTIAL_FALLOFF;
   float _peakFalloffRate = 2;
   float _peakFallRate = 0; // -1 use analysis default
+  RollingAverage * _peakRollingAverage = nullptr;
 
   float mapAndClip(float x, float in_min, float in_max, float out_min, float out_max);
 
@@ -111,10 +115,11 @@ public:
   isNormalize();      // is normalize enabled
   bool isAutoLevel(); // is auto level enabled
 
-  float getSample(uint16_t index); // calculates the normalized sample value at index
+  float getSample(uint16_t index); // gets the raw sample value at index
+  float getSample(uint16_t index, float min, float max); // calculates the normalized sample value at index
   uint16_t getSampleTriggerIndex(); // finds the index of the first cross point at zero
-  float getSampleMin(); // gets the lowest value in the samples
-  float getSampleMax(); // gets the highest value in the samples
+  float getSampleMin(); // gets the lowest raw value in the samples
+  float getSampleMax(); // gets the highest raw value in the samples
 
   int sampleSize() {
     return _sampleSize;
@@ -125,15 +130,12 @@ public:
   float _autoMin = 10; // lowest raw value the autoLevel will fall to before stopping. -1 = will auto level down to 0.
   float _autoMax = -1; // highest raw value the autoLevel will rise to before clipping. -1 = will not have any clipping.
 
-  bool _isNormalize = false;
-  float _normalMin = 0;
-  float _normalMax = 1;
-
   float _min = 0;
   float _max = 0;
 
-  falloff_type _sampleLevelFalloffType = EXPONENTIAL_FALLOFF;
-  float _sampleLevelFalloffRate = 0.00001;
+  falloff_type _sampleFalloffType = EXPONENTIAL_FALLOFF;
+  float _sampleFalloffRate = 0.00001;
+  RollingAverage * _samplesRollingAverage = nullptr;
 
   float mapAndClip(float x, float in_min, float in_max, float out_min, float out_max);
 
@@ -214,30 +216,47 @@ void AudioFrequencyAnalysis::loop(int32_t *samples, int sampleSize, int sampleRa
     _FFT = new ArduinoFFT<float>(_real, _imag, _sampleSize, _sampleRate, _weighingFactors);
   }
 
-  if (_isAutoLevel)
-  {
-    _autoLevelSamplesMaxFalloffRate = ::calculateFalloff(_sampleLevelFalloffType, _sampleLevelFalloffRate, _autoLevelSamplesMaxFalloffRate);
-    _samplesMax -= _autoLevelSamplesMaxFalloffRate;
+  if(_sampleFalloffType != ROLLING_AVERAGE_FALLOFF) {
+    if (_isAutoLevel)
+    {
+      _autoLevelSamplesMaxFalloffRate = ::calculateFalloff(_sampleFalloffType, _sampleFalloffRate, _autoLevelSamplesMaxFalloffRate);
+      _samplesMax -= _autoLevelSamplesMaxFalloffRate;
+    }
   }
+  else if(_samplesRollingAverage == nullptr) {
+    // create it;
+    _samplesRollingAverage = new RollingAverage();
+  }
+
 
   // prep samples for analysis
   for (int i = 0; i < _sampleSize; i++)
   {
     _real[i] = samples[i];
     _imag[i] = 0;
-    if(_sampleLevelFalloffType == ROLLING_AVERAGE_FALLOFF) {
-      _samplesMax = (_samplesMax + abs(samples[i])) / 2.0;
+    float v = abs(samples[i]);
+    if(_sampleFalloffType == ROLLING_AVERAGE_FALLOFF) {
+      float _temp = _samplesMax;
+      if(_samplesMax > v) {
+        _temp = ((_samplesMax - v) * 0.5) + v; // bring max down over time
+        //_temp *= 0.90; // bring max down by 10% over time
+      }
+      else if(v > _samplesMax) {
+        _temp = v;
+      }
+      _samplesRollingAverage->addValue(_temp);
+      _samplesMax = _samplesRollingAverage->getAverage();
     }
     else {
-      if (abs(samples[i]) > _samplesMax)
+      if (v > _samplesMax)
       {
-        _samplesMax = abs(samples[i]);
+        _samplesMax = v;
         _autoLevelSamplesMaxFalloffRate = 0;
       }
     }
-    if (abs(samples[i]) < _samplesMin)
+    if (v < _samplesMin)
     {
-      _samplesMin = abs(samples[i]);
+      _samplesMin = v;
     }
   }
 
@@ -295,6 +314,10 @@ void AudioFrequencyAnalysis::setNoiseFloor(float noiseFloor)
 
 float AudioFrequencyAnalysis::mapAndClip(float x, float in_min, float in_max, float out_min, float out_max)
 {
+  if(in_max - in_min == 0) {
+    in_max = 1; // divide by zero!
+  }
+
   if (_isAutoLevel && _autoMax != -1 && x > _autoMax)
   {
     // clip the value to max
@@ -313,25 +336,14 @@ float AudioFrequencyAnalysis::mapAndClip(float x, float in_min, float in_max, fl
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-void AudioFrequencyAnalysis::normalize(bool normalize, float min, float max)
-{
-  _isNormalize = normalize;
-  _normalMin = min;
-  _normalMax = max;
-}
 
 void AudioFrequencyAnalysis::autoLevel(falloff_type falloffType, float falloffRate, float min, float max)
 {
   _isAutoLevel = falloffType != NO_FALLOFF;
-  _sampleLevelFalloffType = falloffType;
-  _sampleLevelFalloffRate = falloffRate;
+  _sampleFalloffType = falloffType;
+  _sampleFalloffRate = falloffRate;
   _autoMin = min;
   _autoMax = max;
-}
-
-bool AudioFrequencyAnalysis::isNormalize()
-{
-  return _isNormalize;
 }
 
 bool AudioFrequencyAnalysis::isAutoLevel()
@@ -351,11 +363,23 @@ float AudioFrequencyAnalysis::getSample(uint16_t index)
     }
   }
 
-  if (_isNormalize)
+  return value; // raw value
+}
+
+float AudioFrequencyAnalysis::getSample(uint16_t index, float min, float max)
+{
+  float value = 0;
+  if (_samples)
   {
-    float _tempSamplesMax = _samplesMax <= _autoMin * (float)0xFFFF ? _autoMin * 0xFFFF : _samplesMax;
-    return mapAndClip(value, -_tempSamplesMax, _tempSamplesMax, _normalMin, _normalMax);
+    value = (float)_samples[index];
+    if (index < 0 || index >= _sampleSize)
+    {
+      value = 0; // make zero
+    }
   }
+
+  float _tempSamplesMax = _samplesMax <= _autoMin * (float)0xFFFF ? _autoMin * 0xFFFF : _samplesMax;
+  return mapAndClip(value, -_tempSamplesMax, _tempSamplesMax, min, max);
   return value;
 }
 
@@ -380,19 +404,11 @@ uint16_t AudioFrequencyAnalysis::getSampleTriggerIndex()
 
 float AudioFrequencyAnalysis::getSampleMin()
 {
-  if (_isNormalize)
-  {
-    return _normalMin;
-  }
   return _samplesMin;
 }
 
 float AudioFrequencyAnalysis::getSampleMax()
 {
-  if (_isNormalize)
-  {
-    return _normalMax;
-  }
   return _samplesMax;
 }
 
@@ -406,17 +422,17 @@ FrequencyRange::FrequencyRange(uint16_t lowHz, uint16_t highHz, float scaling) {
 
 void FrequencyRange::setAudioInfo(AudioFrequencyAnalysis *audioInfo) { // gets called from AudioFrequencyAnalysis::addFrequencyRange();
   _audioInfo = audioInfo;
-  float lowHz = (float)(_lowHz * _audioInfo->_sampleSize) / (float)_audioInfo->_sampleRate;
-  float highHz = (float)(_highHz * _audioInfo->_sampleSize) / (float)_audioInfo->_sampleRate;
-  _startSampleIndex = floor(lowHz);
-  _endSampleIndex = ceil(highHz);
-  
-  // TODO apply some scaling to the frequency range to normalize the getValue()/getPeak() across multiple ranges.
-  // ignore if _inIsolation == true.
-  // if(_inIsolation != true) {
-  //   _scaling = (highHz+lowHz) / 2.0 / 464.0;
-  // }
-
+  // Calculate FFT index from frequency.
+  float lowIndex = (float)(_lowHz * _audioInfo->_sampleSize) / (float)_audioInfo->_sampleRate;
+  float highIndex = (float)(_highHz * _audioInfo->_sampleSize) / (float)_audioInfo->_sampleRate;
+  if(highIndex-lowIndex <= 1.0) {
+    _startSampleIndex = floor(lowIndex);
+    _endSampleIndex = _startSampleIndex + 1;
+  }
+  else {
+    _startSampleIndex = round(lowIndex);
+    _endSampleIndex = round(highIndex);
+  }
 }
 
 void FrequencyRange::loop() {
@@ -430,6 +446,10 @@ void FrequencyRange::loop() {
       _max = _peak;
     }
   }
+  else if(_maxRollingAverage == nullptr) {
+    // create it;
+    _maxRollingAverage = new RollingAverage();
+  }
   
   if(_max < _autoFloor) {
     _max = _autoFloor; // prevents divide by zero
@@ -442,6 +462,10 @@ void FrequencyRange::loop() {
     if(_peak < _value) {
       _peak = _value;
     }
+  }
+  else if(_peakRollingAverage == nullptr) {
+    // create it;
+    _peakRollingAverage = new RollingAverage();
   }
 
   // reset value
@@ -481,15 +505,39 @@ void FrequencyRange::loop() {
     _value = 0;
   }
 
-  if (_value > _peak)
-  {
-    _peakFallRate = 0;
-    _peak = _value;
+  if(_peakFalloffType == ROLLING_AVERAGE_FALLOFF) {
+    float _temp = _peak;
+    if(_peak > _value) {
+      _temp = ((_peak - _value) * 0.5) + _value; // bring max down over time
+      //_temp *= 0.90; // bring max down by 10% over time
+    }
+    else if(_value > _peak) {
+      _temp = _value;
+    }
+    _peakRollingAverage->addValue(_temp);
+    _peak = _peakRollingAverage->getAverage();
+  }
+  else {
+    if (_value > _peak)
+    {
+      _peakFallRate = 0;
+      _peak = _value;
+    }
   }
 
   // handle min/max
   if(_maxFalloffType == ROLLING_AVERAGE_FALLOFF) {
-    _max = (_max + abs(_value)) / 2.0;
+    float _temp = _max;
+    if(_max > _value) {
+      _temp = ((_max - _value) * 0.5) + _value; // bring max down over time
+      //_temp *= 0.90; // bring max down by 10% over time
+    }
+    else if(_value > _max) {
+      _temp = _value;
+    }
+
+    _maxRollingAverage->addValue(_temp);
+    _max = _maxRollingAverage->getAverage();
   }
   else {  
     if (_value > _max)
@@ -553,6 +601,10 @@ float FrequencyRange::getPeak() {
 
 float FrequencyRange::mapAndClip(float x, float in_min, float in_max, float out_min, float out_max)
 {
+  if(in_max - in_min == 0) {
+    in_max = 1; // divide by zero!
+  }
+
   if (x > _max)
   {
     // clip the value to max

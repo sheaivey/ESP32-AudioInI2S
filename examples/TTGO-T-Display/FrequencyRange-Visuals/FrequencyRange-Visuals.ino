@@ -47,7 +47,7 @@ FrequencyRange bands[BAND_SIZE] = {
   // FrequencyRange(7500, 16000),
 
 // 64 bands
-  FrequencyRange(43, 85, 0.15),
+  FrequencyRange(43, 85, 0.15), // compensate for bass frequencies that have a lot more amplitude
   FrequencyRange(86, 128, 0.155889126585757),
   FrequencyRange(129, 171, 0.173393297816237),
   FrequencyRange(172, 214, 0.202027411196592),
@@ -160,9 +160,9 @@ void setup()
   pinMode(BUTTON_PIN2, INPUT);
 
   // audio analysis setup
-  audioInfo.setNoiseFloor(1);                     // sets the noise floor
-  audioInfo._autoMin = 50;
-  audioInfo.normalize(true, 0, SCREEN_HEIGHT - 1); // normalize all values to range provided.
+  audioInfo.setNoiseFloor(1); // sets the noise floor
+  audioInfo._autoMin = 20;
+  //audioInfo._sampleFalloffType = ROLLING_AVERAGE_FALLOFF;
 
   vuRange._inIsolation = true;
   bassRange._inIsolation = true;
@@ -171,7 +171,7 @@ void setup()
 
   for(int i = 0; i < BAND_SIZE; i++) {
     bands[i]._inIsolation = false;
-    // bands[i]._scaling = 1;
+    //bands[i]._scaling = 1;
     audioInfo.addFrequencyRange(&bands[i]);
   }
 
@@ -218,12 +218,30 @@ void loop()
 
   if(!digitalRead(BUTTON_PIN2)) {
     while (!digitalRead(BUTTON_PIN2));
-    // change number of frequency bands
-    // bandSize *= 2;
-    // if (bandSize > 64)
-    // {
-    //   bandSize = 2;
-    // }
+      switch(vuRange._maxFalloffType) {
+        case NO_FALLOFF:
+          vuRange._maxFalloffType = LINEAR_FALLOFF;
+          vuRange._maxFalloffRate = 10;
+          break;
+        case LINEAR_FALLOFF:
+          vuRange._maxFalloffType = ACCELERATE_FALLOFF; // next best
+          vuRange._maxFalloffRate = 1;
+          break;
+        case ACCELERATE_FALLOFF:
+          vuRange._maxFalloffType = EXPONENTIAL_FALLOFF; // default
+          vuRange._maxFalloffRate = .00001;
+          break;
+        case EXPONENTIAL_FALLOFF:
+          vuRange._maxFalloffType = ROLLING_AVERAGE_FALLOFF; // has clipping but looks good
+          break;
+        case ROLLING_AVERAGE_FALLOFF:
+        default:
+          vuRange._maxFalloffType = NO_FALLOFF;
+      }
+      vuRange._maxFalloffType = vuRange._maxFalloffType;
+      bassRange._maxFalloffType = vuRange._maxFalloffType;
+      midRange._maxFalloffType = vuRange._maxFalloffType;
+      trebleRange._maxFalloffType = vuRange._maxFalloffType;
   }
 
   /* RENDER MODES */
@@ -249,7 +267,6 @@ void processSamples()
 
 void renderFrequencies()
 {
-  audioInfo.normalize(true, 0, SCREEN_HEIGHT - 1); // normalize all values to range provided.
   float vu = vuRange.getValue(0, SCREEN_HEIGHT - 1);
   float vuPeak = vuRange.getPeak(0, SCREEN_HEIGHT - 1);
 
@@ -313,7 +330,6 @@ void renderFrequencies()
 
 void renderOscilloscope()
 {
-  audioInfo.normalize(true, -SCREEN_HEIGHT / 2, SCREEN_HEIGHT / 2); // normalize all values to range provided.
   int triggerIndex = audioInfo.getSampleTriggerIndex();
   canvas.fillScreen(0x0000);
   int stepSize = (SAMPLE_SIZE / 1.5) / SCREEN_WIDTH;
@@ -322,8 +338,8 @@ void renderOscilloscope()
   for (int i = triggerIndex + stepSize, x0 = 1; x0 < SCREEN_WIDTH && i < SAMPLE_SIZE; i += stepSize, x0++)
   {
     int x1 = x0-1;
-    int y0 = audioInfo.getSample(i); 
-    int y1 = audioInfo.getSample(i - stepSize);
+    int y0 = audioInfo.getSample(i, -SCREEN_HEIGHT / 2, SCREEN_HEIGHT / 2); 
+    int y1 = audioInfo.getSample(i - stepSize, -SCREEN_HEIGHT / 2, SCREEN_HEIGHT / 2);
     if (x1 < fadeInOutWidth)
     {
       scale = (float)x0 / (fadeInOutWidth);
@@ -350,6 +366,9 @@ void renderFrequenciesAndMidi()
   canvas.setTextSize(3);
   canvas.setCursor(0,0);
   canvas.setTextColor(tft.color565(255, 255, 255), tft.color565(0, 0, 0));
+
+  // TODO: only update the max frequency if it crosses a threshold or use rolling average so its not jumping all over the place.
+
   canvas.printf("Hz: %d\n", vuRange.getMaxFrequency());
   static String note;
   note = midiToNoteName(frequencyToMidi(vuRange.getMaxFrequency()));
