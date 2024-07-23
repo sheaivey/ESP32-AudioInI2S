@@ -21,9 +21,6 @@
 #define SAMPLE_SIZE 1024  // Buffer size of read samples
 #define SAMPLE_RATE 44100 // Audio Sample Rate
 
-/* Required defines for audio analysis */
-#define BAND_SIZE 8 // powers of 2 up to 64, defaults to 8
-
 #include <AudioFrequencyAnalysis.h>
 AudioFrequencyAnalysis audioInfo;
 

@@ -2,11 +2,17 @@
 #define AudioAnalysis_H
 
 #include "Arduino.h"
+/*
+    AudioAnalysis.h
+    By Shea Ivey
+
+    https://github.com/sheaivey/ESP32-AudioInI2S
+*/
 
 // arduinoFFT V2
 // See the develop branch on GitHub for the latest info and speedups.
 // https://github.com/kosme/arduinoFFT/tree/develop
-// if you are going for speed over percision uncomment the lines below.
+// if you are going for speed over precision uncomment the lines below.
 // #define FFT_SPEED_OVER_PRECISION
 // #define FFT_SQRT_APPROXIMATION
 

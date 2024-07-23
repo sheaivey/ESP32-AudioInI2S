@@ -4,6 +4,13 @@
 #include "Arduino.h"
 #include "RollingAverage.h"
 
+/*
+    AudioFrequencyAnalysis.h
+    By Shea Ivey
+
+    https://github.com/sheaivey/ESP32-AudioInI2S
+*/
+
 // arduinoFFT V2
 // See the develop branch on GitHub for the latest info and speedups.
 // https://github.com/kosme/arduinoFFT/tree/develop
@@ -43,8 +50,8 @@ public:
 
   AudioFrequencyAnalysis *_audioInfo = nullptr;
 
-  FrequencyRange();
-  FrequencyRange(uint16_t low, uint16_t high, float scaling = 1); // scaling for equalizer
+  FrequencyRange(); // full 0Hz - 20000Hz range
+  FrequencyRange(uint16_t lowHz, uint16_t highHz, float scaling = 1); // scaling for equalizer
 
   void setAudioInfo(AudioFrequencyAnalysis *audioInfo);
 
@@ -55,7 +62,7 @@ public:
   float getPeak(); // returns the raw peak
   float getPeak(float min, float max); // returns the calculated peak
   
-  uint16_t getMaxFrequency();
+  uint16_t getMaxFrequency(); // gets the max frequency in Hz within the range
   float getMin(); // gets the lowest raw value in the range
   float getMax(); // gets the highest raw value in the range
 
@@ -93,7 +100,7 @@ class AudioFrequencyAnalysis
 {
 public:
   AudioFrequencyAnalysis();
-  AudioFrequencyAnalysis(int32_t *samples, int sampleSize, int sampleRate, int bandSize);
+  AudioFrequencyAnalysis(int32_t *samples, int sampleSize, int sampleRate);
 
   /* FFT Functions */
   void loop(int32_t *samples, int sampleSize, int sampleRate); // calculates FFT on sample data
@@ -102,8 +109,8 @@ public:
 
   float *getReal();       // gets the Real values after FFT calculation
   float *getImaginary();  // gets the imaginary values after FFT calculation  
-  int getSampleRate();    // gets the Real values after FFT calculation
-  int getSampleSize();    // gets the imaginary values after FFT calculation
+  int getSampleRate();    // gets current sample rate
+  int getSampleSize();    // gets current sample size
 
   /* Band Frequency Functions */
   void setNoiseFloor(float noiseFloor);                              // threshold before sounds are registered
@@ -182,7 +189,7 @@ float calculateFalloff(falloff_type falloffType, float falloffRate, float curren
   }
 }
 
-AudioFrequencyAnalysis::AudioFrequencyAnalysis(int32_t *samples, int sampleSize, int sampleRate, int bandSize)
+AudioFrequencyAnalysis::AudioFrequencyAnalysis(int32_t *samples, int sampleSize, int sampleRate)
 {
   AudioFrequencyAnalysis();
   _samples = samples;

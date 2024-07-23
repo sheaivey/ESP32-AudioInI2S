@@ -4,6 +4,13 @@
 #include "Arduino.h"
 #include <driver/i2s.h>
 
+/*
+    AudioInI2S.h
+    By Shea Ivey
+
+    https://github.com/sheaivey/ESP32-AudioInI2S
+*/
+
 class AudioInI2S
 {
 public:

@@ -1,4 +1,14 @@
-#define MAX_ROLLING_AVERAGE_WINDOW 25
+#ifndef RollingAverage_h
+#define RollingAverage_h
+
+#define MAX_ROLLING_AVERAGE_WINDOW 50
+
+/*
+    RollingAverage.h
+    By Shea Ivey
+
+    https://github.com/sheaivey/ESP32-AudioInI2S
+*/
 
 class RollingAverage {
 public:
@@ -51,3 +61,5 @@ private:
   float values[MAX_ROLLING_AVERAGE_WINDOW];
   float sum = 0.0;
 };
+
+#endif
