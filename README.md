@@ -13,18 +13,18 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
   * Ability to set the peak falloff rates and types. NO_FALLOFF, LINEAR_FALLOFF, ACCELERATE_FALLOFF, EXPONENTIAL_FALLOFF.
   * Equalizer to adjust the frequency levels for each bucket. Good for lowering the bass or treble response depending on the enviroment.
 
-#### [AudioInI2S.md](AudioInI2S Class)
-  * [examples/Basic/Basic.ino](Basic) - Reads I2S microphone data to be viewed in the Serial Plotter.
+#### [AudioInI2S Class README](./AudioInI2S.md)
+  * [Basic](examples/Basic/Basic.ino) - Reads I2S microphone data to be viewed in the Serial Plotter.
 
-#### [AudioAnalysis.md](AudioAnalysis Class)
-  * [examples/Frequencies/Frequencies.ino](Frequencies) - Reads I2S microphone data, processes them into frequency buckets to be viewed in the Serial Plotter.
-  * [examples/FastLED/FastLED.ino](FastLED) - Reads I2S microphone data, processes them into frequency buckets and displays them on a WS2812B led strip.
-  * [examples/OLED_128x64/OLED_128x64.ino](OLED) - Reads I2S microphone data, processes them into frequency buckets and displays them on a 128x64 OLED display.
-  * [examples/TTGO-T-Display/Basic-Visuals/Basic-Visuals.ino](TFT) - Reads I2S microphone data, processes them into frequency buckets and displays them on a 240x135 16bit TFT display.
+#### [AudioAnalysis Class README](./AudioAnalysis.md)
+  * [Frequencies](examples/Frequencies/Frequencies.ino) - Reads I2S microphone data, processes them into frequency buckets to be viewed in the Serial Plotter.
+  * [FastLED](examples/FastLED/FastLED.ino) - Reads I2S microphone data, processes them into frequency buckets and displays them on a WS2812B led strip.
+  * [OLED](examples/OLED_128x64/OLED_128x64.ino) - Reads I2S microphone data, processes them into frequency buckets and displays them on a 128x64 OLED display.
+  * [TFT](examples/TTGO-T-Display/Basic-Visuals/Basic-Visuals.ino) - Reads I2S microphone data, processes them into frequency buckets and displays them on a 240x135 16bit TFT display.
 
-#### [AudioFrequencyAnalysis.md](AudioFrequencyAnalysis Class)
-  * [examples/FrequencyRangeFrequencyRange.ino](FrequencyRange) - Reads I2S microphone data, processes them into frequency buckets to be viewed in the Serial Plotter.
-  * [examples/TTGO-T-Display/FrequencyRange-Visuals/FrequencyRange-Visuals.ino](FrequencyRange-Visuals) - Reads I2S microphone data, processes them into frequency buckets and displays them on a 240x135 16bit TFT display.
+#### [AudioFrequencyAnalysis Class README](./AudioFrequencyAnalysis.md)
+  * [FrequencyRange](examples/FrequencyRange/FrequencyRange.ino) - Reads I2S microphone data, processes them into custom FrequencyRange buckets to be viewed in the Serial Plotter.
+  * [FrequencyRange-Visuals](examples/TTGO-T-Display/FrequencyRange-Visuals/FrequencyRange-Visuals.ino) - Reads I2S microphone data, processes them into custom FrequencyRange buckets and displays them on a 240x135 16bit TFT display.
 
 ## Hardware 
 * ESP32, ESP32 S2, ESP32 C2, ESP32 C3
