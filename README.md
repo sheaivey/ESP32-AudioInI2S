@@ -16,15 +16,17 @@ A simple MEMS I2S microphone and audio processing library for ESP32.
 #### [AudioInI2S Class README](./AudioInI2S.md)
   * [Basic](examples/Basic/Basic.ino) - Reads I2S microphone data to be viewed in the Serial Plotter.
 
-#### [AudioAnalysis Class README](./AudioAnalysis.md)
+#### [AudioFrequencyAnalysis Class README](./AudioFrequencyAnalysis.md) (New Way - Pick the frequencies range buckets you want)
+  * [FrequencyRange](examples/FrequencyRange/FrequencyRange.ino) - Reads I2S microphone data, processes them into custom FrequencyRange buckets to be viewed in the Serial Plotter.
+  * [FrequencyRange-Visuals](examples/TTGO-T-Display/FrequencyRange-Visuals/FrequencyRange-Visuals.ino) - Reads I2S microphone data, processes them into custom FrequencyRange buckets and displays them on a
+
+#### [AudioAnalysis Class README](./AudioAnalysis.md) (Old Way - One Shot frequency buckets 20Hz - 20KHz)
   * [Frequencies](examples/Frequencies/Frequencies.ino) - Reads I2S microphone data, processes them into frequency buckets to be viewed in the Serial Plotter.
   * [FastLED](examples/FastLED/FastLED.ino) - Reads I2S microphone data, processes them into frequency buckets and displays them on a WS2812B led strip.
   * [OLED](examples/OLED_128x64/OLED_128x64.ino) - Reads I2S microphone data, processes them into frequency buckets and displays them on a 128x64 OLED display.
   * [TFT](examples/TTGO-T-Display/Basic-Visuals/Basic-Visuals.ino) - Reads I2S microphone data, processes them into frequency buckets and displays them on a 240x135 16bit TFT display.
 
-#### [AudioFrequencyAnalysis Class README](./AudioFrequencyAnalysis.md)
-  * [FrequencyRange](examples/FrequencyRange/FrequencyRange.ino) - Reads I2S microphone data, processes them into custom FrequencyRange buckets to be viewed in the Serial Plotter.
-  * [FrequencyRange-Visuals](examples/TTGO-T-Display/FrequencyRange-Visuals/FrequencyRange-Visuals.ino) - Reads I2S microphone data, processes them into custom FrequencyRange buckets and displays them on a 240x135 16bit TFT display.
+240x135 16bit TFT display.
 
 ## Hardware 
 * ESP32, ESP32 S2, ESP32 C2, ESP32 C3
